@@ -1,0 +1,129 @@
+---
+import { Picture } from 'astro:assets';
+import photo from '../assets/img/fiestas.jpg';
+import { LINKS } from '../data/site';
+import { roundedPath, type Vertex } from '../lib/rounded-path';
+
+/** A long brick seen from the side: four studs on top, one step down on the right. */
+const studsAt = (positions: [number, number][], base: number, top: number): Vertex[] =>
+  positions.flatMap(([from, to]): Vertex[] => [[from, base, 2], [from, top, 9], [to, top, 9], [to, base, 2]]);
+
+const wide = roundedPath(
+  [
+    [0, 30, 18],
+    ...studsAt([[67.5, 149], [214.5, 296.5], [363, 446.5]], 30, 0),
+    [508.5, 30, 2], [508.5, 0, 9], [591.5, 0, 9], [591.5, 62.5, 2], [654, 62.5, 18], [654, 245, 18], [0, 245, 18],
+  ],
+  16,
+);
+
+const narrow = roundedPath(
+  [
+    [0, 26, 18],
+    ...studsAt([[24, 84], [114, 174], [204, 264]], 26, 0),
+    [294, 26, 2], [294, 0, 9], [354, 0, 9], [354, 26, 18], [380, 26, 18], [380, 480, 18], [0, 480, 18],
+  ],
+  16,
+);
+---
+
+<section class="parties" id="fiestas" data-scroll-progress data-start="0.95" data-end="0.5">
+  <svg class="shape shape--wide" viewBox="0 0 654 245" aria-hidden="true">
+    <path d={wide} fill="url(#paint-royal)" filter="url(#plastic)" />
+  </svg>
+  <svg class="shape shape--narrow" viewBox="0 0 380 480" aria-hidden="true">
+    <path d={narrow} fill="url(#paint-royal)" filter="url(#plastic)" />
+  </svg>
+
+  <Picture
+    class="room"
+    src={photo}
+    alt="Recepción del área de fiestas de Playzone, con mostrador azul y sillas naranjas"
+    formats={['avif', 'webp']}
+    widths={[640, 1220]}
+    sizes="(max-width: 859px) 90vw, 500px"
+  />
+
+  <div class="copy">
+    <h2><span class="burst">Fiestas en<br />Playzone</span></h2>
+    <p>Área privada para fiestas</p>
+    <a class="btn btn--yellow" href={LINKS.book}>Aparta tu fecha</a>
+  </div>
+
+  <svg class="corner" viewBox="0 0 80 62" aria-hidden="true">
+    <rect width="80" height="62" rx="9" fill="url(#paint-blue)" filter="url(#plastic)" />
+    <circle cx="23.5" cy="32" r="12.5" fill="url(#stud-blue)" filter="url(#plastic-stud)" />
+    <circle cx="55" cy="32" r="12.5" fill="url(#stud-blue)" filter="url(#plastic-stud)" />
+  </svg>
+</section>
+
+<style>
+  .parties {
+    --p: 1;
+    position: relative;
+    width: 65.4rem;
+    height: 24.5rem;
+    margin: 5.5rem auto 0;
+  }
+
+  .shape {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    filter: drop-shadow(0 0.6rem 0.8rem rgb(10 50 130 / 0.16));
+  }
+
+  .shape--narrow { display: none; }
+
+  :global(.room) {
+    position: absolute;
+    top: 5.55rem;
+    left: 2.1rem;
+    width: 30.5rem;
+    height: 17rem;
+    border-radius: 1.5rem;
+    object-fit: cover;
+  }
+
+  .copy {
+    position: absolute;
+    top: 5.6rem;
+    left: 35.9rem;
+    color: #fff;
+  }
+
+  h2 { font-size: 4.25rem; font-weight: 900; line-height: 0.94; }
+
+  .copy p { margin: 0.8rem 0 1.4rem; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.015em; }
+
+
+  /* The loose brick clicks into the corner of the big one as the section arrives. */
+  .corner {
+    --left: calc((1 - var(--p)) * (1 - var(--p)));
+    position: absolute;
+    right: -0.25rem;
+    bottom: -0.25rem;
+    width: 8rem;
+    overflow: visible;
+    transform: translate(calc(16rem * var(--left)), calc(-10rem * var(--left))) rotate(calc(40deg * var(--left)));
+    filter: drop-shadow(0 0.3rem 0.5rem rgb(0 20 80 / 0.3));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .corner { transform: none; }
+  }
+
+  @media (width < 860px) {
+    .parties { width: 38rem; height: 48rem; margin-top: 3.4rem; }
+    .shape--wide { display: none; }
+    .shape--narrow { display: block; }
+
+    :global(.room) { top: 4.6rem; left: 2rem; width: 34rem; height: 22rem; }
+
+    .copy { top: 28.4rem; left: 2.4rem; }
+    h2 { font-size: 4.6rem; }
+    .copy p { font-size: 1.9rem; }
+  }
+</style>

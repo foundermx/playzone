@@ -1,0 +1,49 @@
+---
+/** Shared SVG paint: moulded-plastic gradients and the lighting filter for every brick shape. */
+const tones = {
+  red: ['#f8403f', '#dc1a1f', '#bf0a10'],
+  green: ['#2fbb3e', '#17a82b', '#0a7d1c'],
+  blue: ['#2b92ff', '#0f6ff0', '#0453d6'],
+  royal: ['#1a52c0', '#0a3fae', '#06308e'],
+};
+---
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    {
+      Object.entries(tones).map(([tone, [top, middle, bottom]]) => (
+        <>
+          <linearGradient id={`paint-${tone}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color={top} />
+            <stop offset="0.45" stop-color={middle} />
+            <stop offset="1" stop-color={bottom} />
+          </linearGradient>
+          <radialGradient id={`stud-${tone}`} cx="0.38" cy="0.32" r="0.8">
+            <stop offset="0" stop-color={top} />
+            <stop offset="1" stop-color={middle} />
+          </radialGradient>
+        </>
+      ))
+    }
+    <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feGaussianBlur stdDeviation="6" />
+    </filter>
+    <filter id="plastic" x="-4%" y="-4%" width="108%" height="108%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="height" />
+      <feSpecularLighting in="height" surfaceScale="4" specularConstant="1.1" specularExponent="70" lighting-color="#fff" result="gloss">
+        <feDistantLight azimuth="245" elevation="52" />
+      </feSpecularLighting>
+      <feComposite in="gloss" in2="SourceAlpha" operator="in" result="edge" />
+      <feComposite in="SourceGraphic" in2="edge" operator="arithmetic" k1="0" k2="1" k3="0.6" k4="0" />
+    </filter>
+    <filter id="plastic-stud" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.1" result="height" />
+      <feSpecularLighting in="height" surfaceScale="3" specularConstant="1" specularExponent="50" lighting-color="#fff" result="gloss">
+        <feDistantLight azimuth="245" elevation="50" />
+      </feSpecularLighting>
+      <feComposite in="gloss" in2="SourceAlpha" operator="in" result="edge" />
+      <feComposite in="SourceGraphic" in2="edge" operator="arithmetic" k1="0" k2="1" k3="0.55" k4="0" result="lit" />
+      <feDropShadow in="lit" dx="0.4" dy="1.2" stdDeviation="0.9" flood-color="#000" flood-opacity="0.3" />
+    </filter>
+  </defs>
+</svg>

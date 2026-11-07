@@ -1,0 +1,239 @@
+---
+import { Picture } from 'astro:assets';
+import poster from '../assets/img/park-poster.webp';
+import { LINKS, STOPS } from '../data/site';
+---
+
+<section class="park" data-park aria-label="Recorrido por el parque">
+  <div class="stage">
+    <Picture
+      class="poster"
+      src={poster}
+      formats={['avif']}
+      fallbackFormat="webp"
+      widths={[480, 800, 1200, 1800]}
+      sizes="100vw"
+      alt="Maqueta del parque hecha de bloques: tirolesa, puente de cuerdas, pelotas acuáticas, lanchitas, muro de escalar y cancha"
+    />
+    <canvas aria-hidden="true"></canvas>
+
+    <ol class="cards">
+      {
+        STOPS.map(({ title, text, tone, side }, i) => (
+          <li class={`card card--${tone} card--${side}`} data-stop={i}>
+            <h3>{title}</h3>
+            <p>{text}</p>
+          </li>
+        ))
+      }
+    </ol>
+
+    <ol class="dots" aria-label="Paradas del recorrido">
+      {STOPS.map(({ title }, i) => <li><button type="button" data-go={i} aria-label={`Ir a ${title}`}></button></li>)}
+    </ol>
+
+    <p class="hint">Sigue bajando para recorrer el parque</p>
+    <a class="skip" href="#fiestas">Saltar recorrido</a>
+    <a class="btn btn--yellow finale" href={LINKS.book}>Aparta tu fecha</a>
+  </div>
+</section>
+
+<script>
+  import '../scripts/park/boot';
+</script>
+
+<style>
+  .park { position: relative; margin-top: 2rem; }
+
+  .park.is-live { height: 620lvh; }
+
+  .stage { position: relative; }
+
+  .is-live .stage {
+    position: sticky;
+    top: 0;
+    height: 100lvh;
+    overflow: hidden;
+  }
+
+  :global(.poster) { width: 100%; height: auto; }
+
+  .is-live :global(.poster) {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .is-ready :global(.poster) { opacity: 0; transition: opacity 0.4s; }
+
+  canvas {
+    display: none;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .is-live canvas { display: block; }
+
+  .cards, .dots, .hint, .skip, .finale { display: none; }
+
+  .is-live .cards, .is-live .dots, .is-live .hint { display: block; }
+  .is-live .skip, .is-live .finale { display: inline-flex; }
+
+  .card {
+    --tone: var(--red);
+    --shift: 0;
+    position: absolute;
+    top: 50%;
+    width: 23rem;
+    padding: 1.3rem 1.6rem 1.4rem;
+    border-radius: 1.4rem;
+    background: linear-gradient(rgb(255 255 255 / 0.16), rgb(0 0 0 / 0.1)), var(--tone);
+    box-shadow: 0 1rem 2rem rgb(0 30 90 / 0.26), inset 0 0.12rem 0 rgb(255 255 255 / 0.35);
+    color: #fff;
+    text-align: left;
+    opacity: 0;
+    translate: var(--shift) calc(-50% + 2rem);
+    scale: 0.96;
+    transition: opacity 0.2s ease-out, translate 0.32s var(--press), scale 0.32s var(--press);
+  }
+
+  /* The two studs that make the card read as a brick. */
+  .card::before {
+    content: '';
+    position: absolute;
+    top: -0.8rem;
+    left: 1.7rem;
+    width: 3.2rem;
+    height: 0.9rem;
+    border-radius: 0.45rem 0.45rem 0 0;
+    background: var(--tone);
+    box-shadow: 4rem 0 0 var(--tone);
+  }
+
+  .card--left { left: max(3rem, calc(50% - 34rem)); }
+  .card--right { right: max(6rem, calc(50% - 32rem)); }
+  .card--top { top: 22%; left: 50%; --shift: -50%; }
+  .card--red { --tone: var(--red); }
+  .card--yellow { --tone: var(--yellow); color: var(--ink); }
+  .card--blue { --tone: var(--blue); }
+  .card--green { --tone: var(--green); }
+
+  .card.is-active {
+    opacity: 1;
+    translate: var(--shift) -50%;
+    scale: 1;
+  }
+
+  .card h3 {
+    font-family: var(--font-display);
+    font-size: 2.3rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+
+  .card p { margin-top: 0.35rem; font-size: var(--text); font-weight: 700; line-height: 1.3; }
+
+  .dots {
+    position: absolute;
+    top: 50%;
+    right: 1rem;
+    translate: 0 -50%;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  :global(.is-touring) .dots, .dots:focus-within { opacity: 1; }
+
+  /* Small studs, big hit area: the button is 44 px tall around the dot. */
+  .dots button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .dots button::after {
+    content: '';
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: inset 0 -2px 0 rgb(10 50 130 / 0.2), 0 2px 5px rgb(10 50 130 / 0.3);
+    transition: background 0.16s, scale 0.16s var(--press);
+  }
+
+  @media (hover: hover) {
+    .dots button:hover::after { scale: 1.2; }
+  }
+
+  .dots button[aria-current]::after { background: var(--yellow); scale: 1.3; }
+
+  .hint, .finale {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100lvh - 100svh + 1.6rem);
+    translate: -50% 0;
+    white-space: nowrap;
+  }
+
+  .hint {
+    padding: 0.5rem 1.2rem;
+    border-radius: 99rem;
+    background: rgb(255 255 255 / 0.9);
+    font-size: var(--text);
+    font-weight: 800;
+    color: var(--ink);
+    transition: opacity 0.2s;
+  }
+
+  :global(.is-started) .hint { opacity: 0; }
+
+  .finale { opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  :global(.is-finished) .finale { opacity: 1; pointer-events: auto; }
+
+  .skip {
+    position: absolute;
+    top: 6rem;
+    right: 1.6rem;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 1.1rem;
+    border-radius: 99rem;
+    background: rgb(255 255 255 / 0.92);
+    box-shadow: 0 0.3rem 0.9rem rgb(10 50 130 / 0.2);
+    font-size: max(0.96rem, 14px);
+    font-weight: 800;
+    color: var(--ink);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  :global(.is-touring) .skip, .skip:focus-visible { opacity: 1; pointer-events: auto; }
+
+  @media (width < 860px) {
+    .skip { top: 7.4rem; right: 1.2rem; }
+
+    .card, .card--left, .card--right, .card--top {
+      --shift: 0;
+      top: auto;
+      left: 2rem;
+      right: 2rem;
+      bottom: calc(100lvh - 100svh + 2rem);
+      width: auto;
+      translate: 0 2rem;
+    }
+
+    .card.is-active { translate: 0 0; }
+    .dots { right: 0; }
+  }
+</style>

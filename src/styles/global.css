@@ -1,0 +1,146 @@
+/*
+ * 1rem = 10 px of the 724 px mockup, up to a 1180 px layout: past that the page stops
+ * growing, so type and controls keep real desktop sizes instead of a blown-up poster.
+ * Under 860 px the layout stacks on a 40rem-wide column.
+ */
+html {
+  font-size: calc(min(100vw, 1180px) / 72.4);
+  background: var(--bg);
+  color: var(--navy);
+  scroll-padding-top: 6rem;
+  -webkit-text-size-adjust: none;
+}
+
+@media (width < 860px) {
+  html { font-size: min(calc(100vw / 40), 15px); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+:root {
+  --bg: #fbf8f5;
+  --panel: #d4eefd;
+  --navy: #0c2a6e;
+  --ink: #00124d;
+  --yellow: #fdc904;
+  --red: #d8141a;
+  --green: #14a828;
+  --blue: #1270f0;
+  --royal: #0a3fae;
+
+  --text: max(1.1rem, 15px);
+  --press: cubic-bezier(0.2, 0.8, 0.3, 1);
+
+  /* Three short strokes used beside the headings; mirrored with scale. */
+  --burst: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 50' fill='none' stroke='%23fdc904' stroke-width='6.5' stroke-linecap='round'%3E%3Cpath d='M9 5l19 10M4 25h24M9 45l19-10'/%3E%3C/svg%3E");
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text);
+  font-weight: 700;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* clip, not hidden: bricks waiting off-screen must not widen the page or break position: sticky. */
+main { overflow-x: clip; }
+
+h1, h2, h3, h4, p, ul, ol, figure { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+img, svg, picture { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+
+h1, h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+:focus-visible {
+  outline: 0.25rem solid var(--ink);
+  outline-offset: 0.15rem;
+  box-shadow: 0 0 0 0.15rem #fff;
+}
+
+.sr-only:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9em;
+  min-height: 44px;
+  padding: 0.72em 1.35em 0.72em 1.5em;
+  border-radius: 99rem;
+  font-weight: 900;
+  font-size: max(1.14rem, 15px);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: translate 0.16s var(--press), box-shadow 0.16s var(--press);
+}
+
+.btn::after {
+  content: '';
+  width: 1.05em;
+  height: 0.75em;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 21 15' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 7.5h18M13 1.5l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Chunky like a real brick: a solid bottom edge that the button sinks into when pressed. */
+.btn--yellow {
+  --edge: 0.26rem;
+  background: linear-gradient(#ffd528, var(--yellow) 60%, #f9c000);
+  box-shadow: 0 var(--edge) 0 #d99a00, 0 0.7rem 1.3rem rgb(180 120 0 / 0.26), inset 0 0.09rem 0 rgb(255 255 255 / 0.6);
+  color: var(--ink);
+}
+
+.btn--outline {
+  --edge: 0.22rem;
+  background: #fff;
+  box-shadow: inset 0 0 0 0.12rem var(--navy), 0 var(--edge) 0 var(--navy);
+  color: var(--ink);
+}
+
+@media (hover: hover) {
+  .btn:hover { translate: 0 -0.1rem; }
+}
+
+.btn:active {
+  translate: 0 var(--edge);
+  box-shadow: inset 0 0.09rem 0 rgb(255 255 255 / 0.6), inset 0 0 0 0.12rem rgb(0 0 0 / 0.04);
+}
+
+.btn--outline:active { box-shadow: inset 0 0 0 0.12rem var(--navy); }
+
+/* Yellow strokes on one or both sides of a heading. */
+.burst { position: relative; display: inline-block; }
+
+.burst::after, .burst--both::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 0.72em;
+  height: 1.06em;
+  background: var(--burst) center / contain no-repeat;
+  translate: 0 -50%;
+}
+
+.burst::after { left: calc(100% + 0.32em); scale: -1 1; }
+.burst--both::before { right: calc(100% + 0.32em); }

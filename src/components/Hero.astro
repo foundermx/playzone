@@ -1,0 +1,170 @@
+---
+import { Image, Picture } from 'astro:assets';
+import art from '../assets/img/hero.webp';
+import brickBlue from '../assets/img/brick-blue.webp';
+import brickGreen from '../assets/img/brick-green.webp';
+import brickRedLeft from '../assets/img/brick-red-left.webp';
+import brickRedRight from '../assets/img/brick-red-right.webp';
+import brickYellow from '../assets/img/brick-yellow.webp';
+import { LINKS } from '../data/site';
+
+/** Each brick flies in from its own corner of the screen, staggered, and lands with a bounce. */
+const bricks = [
+  { src: brickRedLeft, name: 'red-left', from: '-24rem -16rem', spin: '-60deg', delay: '0.05s' },
+  { src: brickYellow, name: 'yellow', from: '24rem -18rem', spin: '55deg', delay: '0.2s' },
+  { src: brickBlue, name: 'blue', from: '-22rem 18rem', spin: '50deg', delay: '0.32s' },
+  { src: brickGreen, name: 'green', from: '-4rem 24rem', spin: '-45deg', delay: '0.46s' },
+  { src: brickRedRight, name: 'red-right', from: '22rem 20rem', spin: '-50deg', delay: '0.58s' },
+];
+---
+
+<section class="hero" id="inicio">
+  <div class="art">
+    <Picture
+      src={art}
+      formats={['avif']}
+      fallbackFormat="webp"
+      widths={[480, 720, 960, 1280, 1824]}
+      sizes="(max-width: 859px) 100vw, 52vw"
+      alt="Niño sonriendo asomado detrás del edificio de Playzone Córdoba, decorado con bloques de colores"
+      loading="eager"
+      fetchpriority="high"
+    />
+  </div>
+
+  <div class="copy">
+    <h1>Playzone<br />Córdoba</h1>
+    <p>El parque para todos</p>
+    <div class="actions">
+      <a class="btn btn--yellow" href={LINKS.presale}>Consulta la preventa</a>
+      <a class="btn btn--outline" href="#atracciones">Ver atracciones</a>
+    </div>
+  </div>
+
+  {
+    bricks.map(({ src, name, from, spin, delay }) => (
+      <Image
+        class={`brick brick--${name}`}
+        src={src}
+        alt=""
+        widths={[200, 400]}
+        sizes="(max-width: 859px) 24vw, 170px"
+        loading="eager"
+        style={`--from: ${from}; --spin: ${spin}; --delay: ${delay}`}
+      />
+    ))
+  }
+</section>
+
+<style>
+  .hero {
+    --art: max(45.6rem, 51.6vw);
+    position: relative;
+    height: max(43rem, calc(var(--art) * 0.9));
+    overflow: clip;
+  }
+
+  .art {
+    position: absolute;
+    top: 0.6rem;
+    right: 0;
+    width: var(--art);
+  }
+
+  .art :global(img) { width: 100%; height: auto; }
+
+  .copy {
+    position: absolute;
+    top: 50%;
+    left: max(5.5rem, calc(50% - 30.7rem));
+    translate: 0 -50%;
+  }
+
+  h1 {
+    position: relative;
+    width: max-content;
+    font-size: 6.1rem;
+    font-weight: 900;
+    line-height: 0.94;
+    color: var(--navy);
+  }
+
+  h1::after {
+    content: '';
+    position: absolute;
+    top: -2.9rem;
+    right: -1.2rem;
+    width: 5rem;
+    height: 3.9rem;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 44' fill='none' stroke='%23fdc904' stroke-width='6' stroke-linecap='round'%3E%3Cpath d='M6 8l3 16M34 3l-9 21M50 28l-13 6'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  .copy > p {
+    margin-top: 0.9rem;
+    font-family: var(--font-display);
+    font-size: 1.95rem;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+    color: var(--navy);
+  }
+
+  .actions {
+    display: grid;
+    justify-items: start;
+    gap: 1.25rem;
+    margin-top: 2.1rem;
+  }
+
+  .brick {
+    position: absolute;
+    height: auto;
+    animation: brick-in 0.82s var(--delay) both;
+    animation-timing-function: linear(0, 0.2 12%, 0.62 28%, 1.04 48%, 0.965 60%, 1.012 74%, 1);
+  }
+
+  @keyframes brick-in {
+    from {
+      translate: var(--from);
+      rotate: var(--spin);
+      scale: 0.7;
+      opacity: 0;
+    }
+    35% { opacity: 1; }
+  }
+
+  .brick--red-left { top: 3rem; left: -4rem; width: 10.2rem; }
+  .brick--yellow { top: 2.6rem; right: -2.6rem; width: 9rem; }
+  .brick--blue { bottom: 0.8rem; left: -1.4rem; width: 8.6rem; }
+  .brick--green { bottom: 2.2rem; right: calc(var(--art) - 6.4rem); width: 8.4rem; }
+  .brick--red-right { bottom: 1rem; right: -2.4rem; width: 9.6rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .brick { animation: none; }
+  }
+
+  @media (width < 860px) {
+    .hero { height: auto; padding-top: 1.2rem; }
+
+    .copy {
+      position: relative;
+      inset: auto;
+      translate: none;
+      padding-inline: 2rem;
+      text-align: center;
+    }
+
+    h1 { margin-inline: auto; font-size: 6.6rem; }
+    h1::after { top: -2.4rem; right: -3.2rem; width: 4.6rem; height: 3.6rem; }
+    .copy > p { font-size: 2.4rem; }
+    .actions { justify-items: center; gap: 1.2rem; margin: 2rem 0 0; }
+
+    .art { position: relative; top: auto; width: 100%; margin-top: 2.4rem; }
+
+    .brick--red-left { top: 1rem; left: -3.6rem; width: 8.4rem; }
+    .brick--yellow { top: 15rem; right: -2.8rem; width: 8rem; }
+    .brick--blue { top: 21rem; bottom: auto; left: -2.4rem; width: 8rem; }
+    .brick--green { bottom: 0.6rem; left: 2rem; right: auto; width: 7.4rem; }
+    .brick--red-right { bottom: 0; right: -1.6rem; width: 8rem; }
+  }
+</style>

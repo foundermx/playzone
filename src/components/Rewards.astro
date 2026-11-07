@@ -1,0 +1,142 @@
+---
+import { REWARD_TIERS } from '../data/site';
+---
+
+<section class="rewards" id="recompensas">
+  <h2><span class="burst">Programa de<br />recompensas</span></h2>
+
+  <div class="plan">
+    <p class="rate"><span class="burst burst--both">1 punto = 1 peso</span></p>
+    <ul class="tiers" data-scroll-progress data-start="1" data-end="0.68">
+      {
+        REWARD_TIERS.map(({ name, percent, tone }, i) => (
+          <li class={`tier tier--${tone}`} style={`--from: ${i * 0.16}; --to: ${0.68 + i * 0.16}`}>
+            <span class="name">{name}</span>
+            <strong>{percent}%</strong>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .rewards {
+    display: grid;
+    grid-template-columns: 27.4rem 1fr;
+    align-items: center;
+    width: 65.4rem;
+    margin: 4.6rem auto 0;
+  }
+
+  h2 {
+    padding-top: 3rem;
+    margin-left: 1rem;
+    font-size: 3.9rem;
+    font-weight: 900;
+    line-height: 0.92;
+    color: var(--navy);
+  }
+
+  .plan {
+    position: relative;
+    padding-left: 2.4rem;
+  }
+
+  .plan::before {
+    content: '';
+    position: absolute;
+    top: 4rem;
+    bottom: 0;
+    left: 0;
+    width: 0.15rem;
+    background: var(--navy);
+  }
+
+  .rate {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: var(--navy);
+    text-align: center;
+  }
+
+  .rate .burst::before, .rate .burst::after { width: 0.7em; }
+
+  .tiers {
+    --p: 1;
+    display: grid;
+    grid-template-columns: 10.1rem 11.1rem 11.3rem;
+    gap: 1.1rem;
+    margin-top: 2.6rem;
+  }
+
+  .tier {
+    --q: clamp(0, (var(--p) - var(--from)) / (var(--to) - var(--from)), 1);
+    --left: calc((1 - var(--q)) * (1 - var(--q)));
+    --tone: var(--green);
+    --edge: #0a7d1c;
+    position: relative;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    height: 7rem;
+    border-radius: 1rem;
+    background: linear-gradient(rgb(255 255 255 / 0.16), rgb(0 0 0 / 0.08)), var(--tone);
+    box-shadow: inset 0 0.12rem 0 rgb(255 255 255 / 0.35), inset 0 -0.3rem 0 var(--edge), 0 0.4rem 0.6rem rgb(10 40 110 / 0.2);
+    color: #fff;
+    line-height: 1;
+    text-align: center;
+    transform: translateY(calc(3rem * var(--left)));
+    opacity: clamp(0, var(--q) * 2.5, 1);
+  }
+
+  .tier::before, .tier::after {
+    content: '';
+    position: absolute;
+    top: -1.25rem;
+    width: 3.2rem;
+    height: 1.4rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+    background: linear-gradient(rgb(255 255 255 / 0.2), transparent), var(--tone);
+    box-shadow: inset 0 0.1rem 0 rgb(255 255 255 / 0.4);
+  }
+
+  .tier::before { left: 16%; }
+  .tier::after { right: 16%; }
+
+  .tier--blue { --tone: var(--blue); --edge: #0453d6; }
+  .tier--red { --tone: var(--red); --edge: #a50a10; }
+
+  .name {
+    display: block;
+    max-width: 8.4rem;
+    font-size: 1.65rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    line-height: 0.98;
+  }
+
+  strong {
+    display: block;
+    margin-top: 0.2rem;
+    font-family: var(--font-display);
+    font-size: 2.85rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tier { transform: none; opacity: 1; }
+  }
+
+  @media (width < 860px) {
+    .rewards { display: block; width: 36rem; margin-top: 3.4rem; text-align: center; }
+    h2 { display: inline-block; padding: 0; margin: 0; font-size: 4rem; }
+    .plan { margin-top: 2rem; padding: 0; }
+    .plan::before { display: none; }
+    .tiers { grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
+    .tier { height: 8rem; }
+  }
+</style>

@@ -1,0 +1,77 @@
+---
+import Attractions from '../components/Attractions.astro';
+import Header from '../components/Header.astro';
+import Hero from '../components/Hero.astro';
+import Locations from '../components/Locations.astro';
+import ParkTour from '../components/ParkTour.astro';
+import Parties from '../components/Parties.astro';
+import PlasticDefs from '../components/PlasticDefs.astro';
+import Rewards from '../components/Rewards.astro';
+import Layout from '../layouts/Layout.astro';
+
+const attractions = ['Pelotas acuáticas', 'Lanchitas', 'Circuito de cuerdas', 'Muro de escalar', 'Cancha de juegos'];
+---
+
+<Layout
+  title="Playzone Córdoba | El parque para todos"
+  description="Tirolesa, trampolines, muro de escalar, pelotas acuáticas, lanchitas y área privada para fiestas en Playzone Córdoba."
+>
+  <PlasticDefs />
+  <Header />
+  <main>
+    <Hero />
+
+    <section class="explore" id="atracciones">
+      <h2><span class="burst burst--both">Explora las atracciones</span></h2>
+      <div class="panel">
+        <Attractions />
+        <ParkTour />
+        <ul class="list">
+          {attractions.map((name) => <li>{name}</li>)}
+        </ul>
+      </div>
+    </section>
+
+    <Parties />
+    <Rewards />
+    <Locations />
+  </main>
+  <script>
+    import '../scripts/scroll-progress';
+  </script>
+</Layout>
+
+<style>
+  .explore { margin-top: 2.6rem; text-align: center; }
+
+  h2 { font-size: 4.2rem; color: var(--navy); }
+
+  .panel {
+    margin-top: 2.6rem;
+    padding: 4rem 0 3.4rem;
+    border-radius: 4.6rem;
+    background: var(--panel);
+    overflow: clip;
+  }
+
+  .list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 52rem;
+    margin: 1.6rem auto 0;
+    font-size: 1.75rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+  }
+
+  .list li:not(:last-child)::after { content: '·'; margin-inline: 0.35em; }
+
+  @media (width < 860px) {
+    h2 { font-size: 3.6rem; }
+    .burst::before, .burst::after { display: none; }
+    .panel { border-radius: 3rem; padding-top: 2.4rem; }
+    .list { font-size: 1.7rem; max-width: 34rem; }
+  }
+</style>
