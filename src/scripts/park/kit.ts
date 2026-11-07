@@ -74,6 +74,39 @@ export function roundedBox(width: number, height: number, depth: number, radius 
   return box;
 }
 
+/**
+ * Turned part from a profile of [radius, height] corners, each corner rounded by `bevel`:
+ * round bricks, cones, domes. Closed at both ends.
+ */
+export function turned(profile: [number, number][], bevel = 0.08, segments = 32) {
+  const full: [number, number][] = [[0, profile[0][1]], ...profile, [0, profile.at(-1)![1]]];
+  const points: THREE.Vector2[] = [];
+  full.forEach(([r, y], i) => {
+    const before = full[i - 1];
+    const after = full[i + 1];
+    if (!before || !after) {
+      points.push(new THREE.Vector2(r, y));
+      return;
+    }
+    // Ease into and out of the corner over `bevel` along each side.
+    const into = new THREE.Vector2(before[0] - r, before[1] - y);
+    const out = new THREE.Vector2(after[0] - r, after[1] - y);
+    const a = into.clone().setLength(Math.min(bevel, into.length() / 2)).add(new THREE.Vector2(r, y));
+    const b = out.clone().setLength(Math.min(bevel, out.length() / 2)).add(new THREE.Vector2(r, y));
+    for (let s = 0; s <= 4; s++) {
+      const t = s / 4;
+      // Quadratic Bézier through the sharp corner.
+      points.push(new THREE.Vector2(
+        (1 - t) ** 2 * a.x + 2 * (1 - t) * t * r + t * t * b.x,
+        (1 - t) ** 2 * a.y + 2 * (1 - t) * t * y + t * t * b.y,
+      ));
+    }
+  });
+  const geometry = new THREE.LatheGeometry(points, segments);
+  geometry.deleteAttribute('uv');
+  return mergeVertices(geometry);
+}
+
 /** Cylinder between two points, for rails, ropes and posts. */
 export function barBetween(from: THREE.Vector3, to: THREE.Vector3, radius: number, segments = 12) {
   const direction = to.clone().sub(from);
@@ -256,8 +289,8 @@ export function studField(bricks: Brick[], segments: number, materials: Material
   return mesh;
 }
 
-/** Floating balls, bobbing in the vertex shader: nothing to update per frame. */
-export function ballField(spots: [number, number, number, number][], materials: Materials) {
+/** Balls, bobbing in the vertex shader by `bob` (nothing to update per frame). */
+export function ballField(spots: [number, number, number, number][], materials: Materials, bob = 0.05, delay = PROP_DELAY) {
   const sphere = new THREE.SphereGeometry(0.5, 24, 16);
   sphere.setAttribute('aShade', new THREE.BufferAttribute(new Float32Array(sphere.getAttribute('position').count).fill(1), 1));
   const count = spots.length;
@@ -269,7 +302,7 @@ export function ballField(spots: [number, number, number, number][], materials: 
     centres.set([x, y, z], i * 3);
     tint.set(color);
     colors.set([tint.r, tint.g, tint.b, 1], i * 4);
-    metas.set([PROP_DELAY + (i % 9) * 0.012, 0, 0.05, 1], i * 4);
+    metas.set([delay + (i % 9) * 0.012, 0, bob, 1], i * 4);
   });
   const mesh = new THREE.Mesh(instanced(sphere, count, { iCentre: [centres, 3], iColor: [colors, 4], iMeta: [metas, 4] }), materials.stud);
   mesh.frustumCulled = false;

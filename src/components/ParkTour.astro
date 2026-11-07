@@ -4,8 +4,26 @@ import poster from '../assets/img/park-poster.webp';
 import { LINKS, STOPS } from '../data/site';
 ---
 
-<section class="park" data-park aria-label="Recorrido por el parque">
-  <div class="stage">
+<!--
+  The hero (slot) and the 3D park share one sticky stage. Scrolling first zooms the hero into
+  the shop door and fades it into the park behind (scripts/intro.ts), then flies the camera
+  from stop to stop. Without motion or WebGL2 the hero and the poster simply stack.
+-->
+<div class="park" id="inicio" data-park>
+  <script is:inline>
+    // Decided before the first paint, so the hero does not jump when the page turns live.
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'WebGL2RenderingContext' in window) {
+      document.currentScript.parentElement.classList.add('is-live');
+    }
+  </script>
+
+  <div class="intro" data-intro>
+    <slot />
+  </div>
+
+  <span class="tour-start" id="atracciones" data-tour-start></span>
+
+  <section class="stage" aria-label="Recorrido por el parque">
     <Picture
       class="poster"
       src={poster}
@@ -13,7 +31,7 @@ import { LINKS, STOPS } from '../data/site';
       fallbackFormat="webp"
       widths={[480, 800, 1200, 1800]}
       sizes="100vw"
-      alt="Maqueta del parque hecha de bloques: tirolesa, puente de cuerdas, pelotas acuáticas, lanchitas, muro de escalar y cancha"
+      alt="Maqueta del parque hecha de bloques dentro de la nave, entre la estructura de juegos con resbaladilla en espiral y las mesas de la cafetería: tirolesa, puente de troncos, pelotas acuáticas, lanchitas, muro de escalar y cancha"
     />
     <canvas aria-hidden="true"></canvas>
 
@@ -33,27 +51,71 @@ import { LINKS, STOPS } from '../data/site';
     </ol>
 
     <p class="hint">Sigue bajando para recorrer el parque</p>
-    <a class="skip" href="#fiestas">Saltar recorrido</a>
+    <a class="skip" href="#galeria">Saltar recorrido</a>
     <a class="btn btn--yellow finale" href={LINKS.book}>Aparta tu fecha</a>
-  </div>
-</section>
+  </section>
+</div>
 
 <script>
+  import '../scripts/intro';
   import '../scripts/park/boot';
 </script>
 
 <style>
-  .park { position: relative; margin-top: 2rem; }
+  .park { position: relative; }
 
-  .park.is-live { height: 620lvh; }
+  /* Pulled up under the header, so hero and stage pin from the very first pixel of scroll. */
+  .park.is-live {
+    --intro-travel: 170lvh;
+    height: calc(var(--intro-travel) + 620lvh);
+    margin-top: calc(-1 * var(--header-h));
+    border-radius: 0 0 4.6rem 4.6rem;
+    overflow: clip;
+  }
 
-  .stage { position: relative; }
+  .intro { position: relative; }
+
+  /* Lies on top of the stage, pinned with it, until the zoom has gone through the door. */
+  .is-live .intro {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: grid;
+    align-content: center;
+    height: 100lvh;
+    margin-bottom: -100lvh;
+    padding: var(--header-h) 0 calc(100lvh - 100svh);
+    background: var(--bg);
+    overflow: clip;
+    opacity: calc(1 - clamp(0, (var(--p, 0) - 0.62) / 0.3, 1));
+  }
+
+  .is-live .intro.is-leaving { pointer-events: none; }
+  .is-live .intro.is-through { visibility: hidden; }
+
+  .is-live .tour-start { position: absolute; top: var(--intro-travel); }
+
+  .stage {
+    position: relative;
+    margin-top: 2.6rem;
+    border-radius: 4.6rem;
+    background: var(--panel);
+    overflow: clip;
+  }
 
   .is-live .stage {
     position: sticky;
     top: 0;
     height: 100lvh;
+    margin: 0;
+    border-radius: 0;
     overflow: hidden;
+    /* Continues the poster past its edges while the scene loads: wall above, floor below. */
+    background: linear-gradient(#f5f6f4 50%, #bfcbd9 50%);
+  }
+
+  @media (min-aspect-ratio: 16 / 10) {
+    .is-live .stage { background: linear-gradient(#f5f6f4, #e4e8ec 30%, #becbd9 50%, #bfcbd9); }
   }
 
   :global(.poster) { width: 100%; height: auto; }
@@ -221,6 +283,8 @@ import { LINKS, STOPS } from '../data/site';
   :global(.is-touring) .skip, .skip:focus-visible { opacity: 1; pointer-events: auto; }
 
   @media (width < 860px) {
+    .stage { border-radius: 3rem; }
+    .park.is-live { border-radius: 0 0 3rem 3rem; }
     .skip { top: 7.4rem; right: 1.2rem; }
 
     .card, .card--left, .card--right, .card--top {

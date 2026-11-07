@@ -1,0 +1,421 @@
+---
+import { getImage, Picture } from 'astro:assets';
+import FlyingBricks, { type Piece } from './FlyingBricks.astro';
+import aquabolas from '../assets/img/aquabolas.jpg';
+import juegos from '../assets/img/area-juegos.jpg';
+import cuerdas from '../assets/img/circuito-cuerdas.jpg';
+import lanchitas from '../assets/img/lanchitas.jpg';
+import pueblo from '../assets/img/pueblo-acuatico.jpg';
+import tirolesa from '../assets/img/tirolesa.jpg';
+
+interface Photo {
+  src: ImageMetadata;
+  title: string;
+  alt: string;
+  tone: 'red' | 'yellow' | 'blue' | 'green';
+  /** Takes two rows (`tall`) or two columns (`wide`) of the grid; the last photo also goes wide on phones. */
+  span?: 'tall' | 'wide';
+}
+
+/** Add a photo here and it joins the grid and the viewer. Gaps fill themselves. */
+const photos: Photo[] = [
+  {
+    src: tirolesa,
+    title: 'Tirolesa',
+    alt: 'Niño con arnés deslizándose en la tirolesa sobre el área de juegos, entre columnas rayadas en rojo y blanco',
+    tone: 'red',
+    span: 'tall',
+  },
+  { src: aquabolas, title: 'Pelotas acuáticas', alt: 'Dos niñas caminando dentro de pelotas acuáticas transparentes en el Pueblo Acuático', tone: 'blue' },
+  {
+    src: juegos,
+    title: 'Área de juegos',
+    alt: 'Estructura de juegos de varios niveles con redes y una resbaladilla en espiral decorada como galaxia',
+    tone: 'green',
+    span: 'tall',
+  },
+  { src: lanchitas, title: 'Lanchitas', alt: 'Dos niños paseando en lanchitas de pedales con ruedas verdes en la alberca de mosaico', tone: 'yellow' },
+  {
+    src: cuerdas,
+    title: 'Circuito de cuerdas',
+    alt: 'Circuito de cuerdas con troncos colgantes cerca del techo, junto al muro de escalar y la cancha del segundo piso',
+    tone: 'red',
+    span: 'wide',
+  },
+  {
+    src: pueblo,
+    title: 'Pueblo Acuático',
+    alt: 'Pelota acuática en la alberca de mosaico azul del Pueblo Acuático, con barandal de tubos de colores',
+    tone: 'blue',
+  },
+];
+
+/** Width each photo is drawn at. A square photo filling a tall tile is as wide as the tile is tall. */
+const SIZES = {
+  tall: '(max-width: 859px) 80vw, 560px',
+  wide: '(max-width: 859px) 92vw, 700px',
+  single: '(max-width: 859px) 46vw, 340px',
+};
+
+/** Loose bricks in the margins beside the grid; on phones two land by the heading. */
+const pieces: Piece[] = [
+  { brick: 'yellow', at: ['calc(50% - 42rem)', '-1rem', 7.5], phone: ['-1.6rem', '-5.6rem', 5], tumble: -140 },
+  { brick: 'blue', at: ['calc(50% + 35rem)', '7rem', 6.5], phone: ['calc(100% - 3.8rem)', '-4.6rem', 4.6], tumble: 110 },
+  { brick: 'red-right', at: ['calc(50% - 41rem)', '36rem', 6.5], tumble: 160 },
+  { brick: 'green', at: ['calc(50% + 34.5rem)', '46rem', 7], tumble: -120 },
+];
+
+const attractions = ['Muro de escalar', 'Cancha de juegos', 'Resbaladilla en espiral', 'Alberca de pelotas', 'Zona para los más pequeños'];
+
+// The viewer shows each photo as large as it was shot, capped so a big upload stays light.
+const large = await Promise.all(photos.map(({ src }) => getImage({ src, width: Math.min(src.width, 1600), format: 'webp' })));
+---
+
+<section class="gallery" id="galeria">
+  <FlyingBricks pieces={pieces} />
+  <h2 class="reveal" data-scroll-progress data-start="0.95" data-end="0.7"><span class="burst burst--both">Explora las atracciones</span></h2>
+
+  <ul class="grid">
+    {
+      photos.map(({ src, title, alt, tone, span }, i) => (
+        <li
+          class:list={['shot', 'snap', `shot--${tone}`, span && `shot--${span}`]}
+          data-scroll-progress
+          data-start="1.02"
+          data-end="0.35"
+          style={`--lag: ${(i % 3) * 0.07}; --tilt: ${[-5, 4, -3, 5, -4, 3][i % 6]}deg`}
+        >
+          <button
+            type="button"
+            aria-label={`Ampliar foto: ${title}`}
+            data-photo={i}
+            data-src={large[i].src}
+            data-width={large[i].attributes.width}
+            data-height={large[i].attributes.height}
+            data-alt={alt}
+            data-title={title}
+          >
+            <Picture
+              src={src}
+              alt=""
+              formats={['avif', 'webp']}
+              widths={[400, 800, 1200]}
+              sizes={SIZES[span ?? 'single']}
+            />
+            <span class="tag drop" data-drop style={`--tumble: ${i % 2 ? 14 : -14}deg`}>{title}</span>
+          </button>
+        </li>
+      ))
+    }
+  </ul>
+
+  <ul class="list">
+    {attractions.map((name) => <li>{name}</li>)}
+  </ul>
+
+  <dialog class="viewer" aria-label="Foto ampliada">
+    <button class="control control--close" type="button" data-close aria-label="Cerrar"></button>
+    <figure>
+      <img src="data:," alt="" />
+      <figcaption></figcaption>
+    </figure>
+    <button class="control control--prev" type="button" data-step="-1" aria-label="Foto anterior"></button>
+    <button class="control control--next" type="button" data-step="1" aria-label="Foto siguiente"></button>
+  </dialog>
+</section>
+
+<script>
+  const viewer = document.querySelector<HTMLDialogElement>('.viewer')!;
+  const image = viewer.querySelector('img')!;
+  const caption = viewer.querySelector('figcaption')!;
+  const shots = [...document.querySelectorAll<HTMLButtonElement>('[data-photo]')];
+  let current = 0;
+
+  const show = (index: number) => {
+    current = (index + shots.length) % shots.length;
+    const { src, width, height, alt, title } = shots[current].dataset;
+    image.width = Number(width);
+    image.height = Number(height);
+    image.src = src!;
+    image.alt = alt!;
+    caption.textContent = `${title}  ·  ${current + 1} de ${shots.length}`;
+  };
+
+  shots.forEach((shot, i) => shot.addEventListener('click', () => {
+    show(i);
+    viewer.showModal();
+  }));
+
+  viewer.addEventListener('click', (event) => {
+    const target = event.target as Element;
+    const step = target.closest<HTMLElement>('[data-step]');
+    if (step) show(current + Number(step.dataset.step));
+    // The dialog itself is the dimmed area around the photo.
+    else if (target === viewer || target.closest('[data-close]')) viewer.close();
+  });
+
+  viewer.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowRight') show(current + 1);
+    if (event.key === 'ArrowLeft') show(current - 1);
+  });
+
+  // Back on the photo last seen, not the one first opened.
+  viewer.addEventListener('close', () => shots[current].focus());
+</script>
+
+<style>
+  .gallery { position: relative; margin-top: 5.5rem; text-align: center; }
+
+  h2 { font-size: 4.2rem; color: var(--navy); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: 16.5rem;
+    grid-auto-flow: dense;
+    gap: 1.4rem;
+    width: 65.4rem;
+    margin: 2.8rem auto 0;
+  }
+
+  /*
+   * Each photo measures its own way up the screen (--p) and clicks into place over the first
+   * half of it, tilted and a touch large until it lands; the picture keeps zooming out after.
+   */
+  .shot {
+    --tone: var(--red);
+    --p: 1;
+    --q: clamp(0, (var(--p) - var(--lag)) / 0.5, 1);
+  }
+
+  .shot--tall { grid-row: span 2; }
+  .shot--wide { grid-column: span 2; }
+  .shot--yellow { --tone: var(--yellow); }
+  .shot--blue { --tone: var(--blue); }
+  .shot--green { --tone: var(--green); }
+
+  .shot button {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 2.2rem;
+    background: var(--panel);
+    box-shadow: 0 1rem 2.2rem rgb(10 50 130 / 0.16);
+    cursor: zoom-in;
+    touch-action: manipulation;
+    opacity: clamp(0, var(--q) * 2.5, 1);
+    transform: translateY(calc(var(--off) * 7rem)) rotate(calc(var(--off) * var(--tilt))) scale(calc(1 + var(--off) * 0.08));
+    transition: translate 0.2s var(--press), box-shadow 0.2s var(--press);
+  }
+
+  .shot :global(picture) { height: 100%; border-radius: inherit; overflow: hidden; }
+
+  .shot :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(calc(1.16 - var(--p) * 0.16));
+    transition: scale 0.5s var(--press);
+  }
+
+  /* Corner badge that says the photo opens. */
+  .shot button::after {
+    content: '';
+    position: absolute;
+    top: 1.2rem;
+    right: 1.2rem;
+    width: 3.6rem;
+    height: 3.6rem;
+    border-radius: 50%;
+    background: rgb(255 255 255 / 0.92) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2300124d' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7'/%3E%3C/svg%3E") center / 45% no-repeat;
+    box-shadow: 0 0.3rem 0.9rem rgb(10 50 130 / 0.22);
+    transition: opacity 0.2s, scale 0.2s var(--press);
+  }
+
+  @media (hover: hover) {
+    .shot button::after { opacity: 0; scale: 0.8; }
+    .shot button:hover { translate: 0 -0.3rem; box-shadow: 0 1.4rem 2.8rem rgb(10 50 130 / 0.22); }
+    .shot button:hover :global(img) { scale: 1.05; }
+    .shot button:hover::after, .shot button:focus-visible::after { opacity: 1; scale: 1; }
+  }
+
+  /* The title as a small brick, two studs on top, like the cards of the tour. */
+  .tag {
+    --ink-on-tone: #fff;
+    position: absolute;
+    left: 1.4rem;
+    bottom: 1.4rem;
+    padding: 0.6rem 1.2rem 0.65rem;
+    border-radius: 0.9rem;
+    background: linear-gradient(rgb(255 255 255 / 0.16), rgb(0 0 0 / 0.1)), var(--tone);
+    box-shadow: 0 0.6rem 1.2rem rgb(0 30 90 / 0.28), inset 0 0.12rem 0 rgb(255 255 255 / 0.35);
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--ink-on-tone);
+    /* Dropped onto the photo from just above, once the photo has landed. */
+    --fall: -6rem;
+    --drop-time: 0.85s;
+    --drop-delay: 0.1s;
+  }
+
+  .shot--yellow .tag { --ink-on-tone: var(--ink); }
+
+  .tag::before {
+    content: '';
+    position: absolute;
+    top: -0.6rem;
+    left: 1.1rem;
+    width: 2.2rem;
+    height: 0.7rem;
+    border-radius: 0.35rem 0.35rem 0 0;
+    background: var(--tone);
+    box-shadow: 2.9rem 0 0 var(--tone);
+  }
+
+  .list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 52rem;
+    margin: 2.4rem auto 0;
+    font-size: 1.75rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+  }
+
+  .list li:not(:last-child)::after { content: '·'; margin-inline: 0.35em; }
+
+  /* Viewer: the dialog is the whole screen, the photo floats in the middle. */
+  :global(html:has(.viewer[open])) { overflow: hidden; }
+
+  .viewer {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 2rem 7rem;
+    border: 0;
+    background: none;
+    cursor: zoom-out;
+  }
+
+  .viewer[open] { display: grid; place-items: center; }
+
+  .viewer::backdrop { background: rgb(0 18 77 / 0.88); }
+
+  figure {
+    display: grid;
+    justify-items: center;
+    gap: 1.4rem;
+    cursor: auto;
+    animation: open 0.26s var(--press);
+  }
+
+  figure img {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: calc(100svh - 10rem);
+    border-radius: 1.8rem;
+    box-shadow: 0 2rem 5rem rgb(0 0 0 / 0.35);
+  }
+
+  figcaption {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    white-space: pre;
+    color: #fff;
+  }
+
+  @keyframes open {
+    from { opacity: 0; scale: 0.94; }
+  }
+
+  .control {
+    position: fixed;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0.4rem 1.2rem rgb(0 0 0 / 0.3);
+    color: var(--ink);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: scale 0.16s var(--press);
+  }
+
+  .control::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    background: currentColor;
+    mask: var(--icon) center / contain no-repeat;
+  }
+
+  @media (hover: hover) {
+    .control:hover { scale: 1.08; }
+  }
+
+  .control--close {
+    top: 1.6rem;
+    right: 1.6rem;
+    --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M4 4l12 12M16 4L4 16'/%3E%3C/svg%3E");
+  }
+
+  .control--prev, .control--next {
+    top: 50%;
+    translate: 0 -50%;
+    --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.5 4l-6 6 6 6'/%3E%3C/svg%3E");
+  }
+
+  .control--prev { left: 1.6rem; }
+  .control--next { right: 1.6rem; }
+  .control--next::after { scale: -1 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .shot button, .shot :global(img) { opacity: 1; transform: none; }
+    figure { animation: none; }
+  }
+
+  @media (width < 860px) {
+    h2 { font-size: 3.6rem; }
+    .burst::before, .burst::after { display: none; }
+
+    .grid {
+      grid-template-columns: 1fr 1fr;
+      grid-auto-rows: 15rem;
+      gap: 1rem;
+      width: auto;
+      margin: 2.4rem 2rem 0;
+    }
+
+    .shot:last-child { grid-column: span 2; }
+    .shot button { border-radius: 1.8rem; }
+    .shot button::after { top: 0.8rem; right: 0.8rem; width: 3.2rem; height: 3.2rem; }
+    .tag { left: 1rem; bottom: 1rem; font-size: 1.5rem; padding: 0.5rem 0.9rem 0.55rem; }
+    .list { font-size: 1.7rem; max-width: 34rem; }
+
+    /* Arrows sit under the photo, where thumbs reach. */
+    .viewer { padding: 6rem 1.4rem 9rem; }
+    figure img { max-height: calc(100svh - 18rem); border-radius: 1.4rem; }
+    figcaption { font-size: 1.8rem; }
+    .control--prev, .control--next { top: auto; bottom: 2.4rem; translate: none; }
+    .control--prev { left: calc(50% - 60px); }
+    .control--next { right: calc(50% - 60px); }
+  }
+</style>

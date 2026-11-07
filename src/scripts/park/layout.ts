@@ -21,6 +21,12 @@ export const COLOR = {
   brown: 0x5a3417,
   hair: 0x6a3d1c,
   water: 0x25b8dc,
+  floor: 0x98a3b0,
+  wall: 0xf0f0ec,
+  ceiling: 0x1f50c4,
+  beam: 0x1a43a6,
+  table: 0xf7931e,
+  seat: 0xc8202a,
 } as const;
 
 const normalize = ([x, y, z]: [number, number, number]): [number, number, number] => {
@@ -40,6 +46,18 @@ export const RIM_HEIGHT = 1.7;
 
 /** X runs along the back wall, Z along the left wall. */
 export const OUTLINE: [number, number][] = [[-1.5, -1.5], [28.5, -1.5], [28.5, 21], [20.5, 28], [-1.5, 28]];
+/** Floor of the hall the park stands in, level with the bottom of its own plate. */
+export const GROUND_Y = -BRICK;
+/** Width of the ring of foam mats around the park. */
+export const MATS = 3.2;
+/**
+ * The hall: walls at x0, x1 and z0, open towards the visitor (every camera looks away from
+ * there), and a blue ceiling of round lights that only shows from below. Wide enough on the right
+ * that even the far-back overview of a tall phone stands inside it.
+ */
+/** Wall padding colours, in turn along each wall; the floor shader mirrors the same order. */
+export const PADDING = [COLOR.blueBright, COLOR.yellow, COLOR.red, COLOR.greenBright];
+export const HALL = { x0: -34, x1: 130, z0: -26, front: 320, ceiling: 60, lightPitch: 10, lightRadius: 0.8 } as const;
 export const POOL = { x0: 0.5, z0: 0.5, x1: 14.5, z1: 26 };
 export const FIELD = { x0: 20.5, z0: 0.5, x1: 27.5, z1: 19, top: 0.16 };
 export const DECK = { x1: 14.5, z1: 19, bottom: 3.9, top: 5, lip: 1.3 };
@@ -207,12 +225,11 @@ function rim(list: BrickList) {
 
 function pillars(list: BrickList) {
   const capStuds: [number, number][] = [[-0.75, -0.75], [0.75, -0.75], [-0.75, 0.75], [0.75, 0.75]];
-  // Front left: the stacked red, yellow and blue column.
-  list.column(-1, 24.5, 2, 2, 0, 2, COLOR.red);
-  list.add(-1.75, 3 * BRICK, 23.75, 3.5, 3.5, COLOR.yellow, { height: BRICK * 2, studs: capStuds });
-  list.column(-1, 24.5, 2, 2, 5, 6, COLOR.blue);
-  list.add(-1.75, 7 * BRICK, 23.75, 3.5, 3.5, COLOR.yellow, { height: BRICK * 2, studs: capStuds });
-  list.column(-1, 24.5, 2, 2, 9, ROWS - 1, COLOR.blue);
+  // Front left: striped red and white like the columns of the real hall, with two wide collars.
+  const stripe = (row: number) => (row % 2 ? COLOR.white : COLOR.red);
+  for (const row of [0, 1, 2, 5, 6, 9, 10, 11]) list.column(-1, 24.5, 2, 2, row, row, stripe(row));
+  list.add(-1.75, 3 * BRICK, 23.75, 3.5, 3.5, COLOR.white, { height: BRICK * 2, studs: capStuds });
+  list.add(-1.75, 7 * BRICK, 23.75, 3.5, 3.5, COLOR.red, { height: BRICK * 2, studs: capStuds });
 
   // Back corner and the post that closes the bridge.
   list.column(-1, -1, 2.5, 2.5, 0, ROWS - 1, COLOR.blue);

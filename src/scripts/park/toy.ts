@@ -1,5 +1,15 @@
 import * as THREE from 'three';
-import { LIGHT_VOLUME, SUN } from './layout.ts';
+import { COLOR, GROUND_Y, HALL, LIGHT_VOLUME, MATS, OUTLINE, PADDING, SUN } from './layout.ts';
+
+const glslVec3 = (hex: number) => {
+  const { r, g, b } = new THREE.Color(hex);
+  return `vec3(${r.toFixed(4)}, ${g.toFixed(4)}, ${b.toFixed(4)})`;
+};
+
+/** The air of the hall: far walls and floor soften towards it. */
+const HAZE = 0xc4d3e3;
+/** Behind everything: the dark of the hall's ceiling. */
+export const BACKDROP = COLOR.ceiling;
 
 /**
  * Every surface of the park shares this shading. All the expensive light (sky, lamps,
@@ -9,10 +19,22 @@ import { LIGHT_VOLUME, SUN } from './layout.ts';
 const LIGHTING = /* glsl */ `
   uniform highp sampler3D uLight;
   uniform vec3 uLightMin;
+  uniform vec3 uLightMax;
   uniform vec3 uLightInvSize;
 
   const vec3 SUN_DIR = vec3(${SUN.join(', ')});
   const vec3 SUN_RGB = vec3(1.12, 1.0, 0.84);
+  // What the bake measured in open air: the light out in the hall, past the volume.
+  const vec4 OPEN_LIGHT = vec4(0.64, 0.72, 0.84, 1.0);
+
+  uniform vec3 uHaze;
+  uniform float uFocus;
+
+  // Air between the camera and what lies well behind its subject. \`clear\` keeps it off nearer things.
+  vec3 haze(vec3 colour, vec3 world, float clear) {
+    float far = max(distance(cameraPosition, world) - uFocus * 0.85 - clear, 0.0) / (uFocus * 1.4 + 20.0);
+    return mix(colour, uHaze, 1.0 - exp(-far * far));
+  }
 
   // What a glossy toy reflects: a bright studio ceiling and one long softbox.
   vec3 studio(vec3 r) {
@@ -23,9 +45,12 @@ const LIGHTING = /* glsl */ `
   }
 
   vec4 bakedLight(vec3 world, vec3 n) {
-    vec4 light = texture(uLight, (world + n * 0.42 - uLightMin) * uLightInvSize);
+    vec3 at = world + n * 0.42;
+    vec4 light = texture(uLight, (at - uLightMin) * uLightInvSize);
     light.rgb = light.rgb * light.rgb * 1.6;
-    return light;
+    // The texture clamps at its edges; out there nothing stands in the way of the light.
+    vec3 outside = max(max(uLightMin - at, at - uLightMax), 0.0);
+    return mix(light, OPEN_LIGHT, clamp(length(outside) / 2.5, 0.0, 1.0));
   }
 
   vec3 shade(vec3 albedo, float gloss, vec3 n, vec3 world) {
@@ -58,7 +83,8 @@ const SURFACE_FRAGMENT = /* glsl */ `
     vec3 n = normalize(vNormal);
     vec3 colour = shade(vColor.rgb, vColor.a, n, vWorld);
     // Bevels that do not face up fall into the gap between bricks: that is the seam you see.
-    gl_FragColor = vec4(colour * (1.0 - vSeam * (1.0 - max(n.y, 0.0))), 1.0);
+    colour *= 1.0 - vSeam * (1.0 - max(n.y, 0.0));
+    gl_FragColor = vec4(haze(colour, vWorld, 25.0), 1.0);
     #include <colorspace_fragment>
   }
 `;
@@ -341,6 +367,162 @@ const BLOB_FRAGMENT = /* glsl */ `
   }
 `;
 
+const FLOOR_VERTEX = /* glsl */ `
+  varying vec3 vWorld;
+
+  void main() {
+    vec4 world = modelMatrix * vec4(position, 1.0);
+    vWorld = world.xyz;
+    gl_Position = projectionMatrix * viewMatrix * world;
+  }
+`;
+
+
+/**
+ * The hall floor, drawn per pixel: a ring of jigsaw foam mats around the park, then polished
+ * tiles that mirror the light panels of the ceiling, which is what makes it read as indoors.
+ */
+const FLOOR_FRAGMENT = /* glsl */ `
+  ${LIGHTING}
+  varying vec3 vWorld;
+
+  const vec2 OUTLINE[${OUTLINE.length}] = vec2[${OUTLINE.length}](${OUTLINE.map(([x, z]) => `vec2(${x.toFixed(2)}, ${z.toFixed(2)})`).join(', ')});
+  const float MATS = ${MATS.toFixed(2)};
+  const vec3 FLOOR = ${glslVec3(COLOR.floor)};
+  const vec3 MAT_COLOURS[4] = vec3[4](${[0xd9605a, 0xeebc4a, 0x4a7fcf, 0x55a865].map(glslVec3).join(', ')});
+  const float CEILING = ${HALL.ceiling.toFixed(1)};
+  const float LAMP_PITCH = ${HALL.lightPitch.toFixed(1)};
+  const float LAMP_RADIUS = ${HALL.lightRadius.toFixed(2)};
+  const vec2 WALLS = vec2(${HALL.x0.toFixed(1)}, ${HALL.x1.toFixed(1)});
+  const float BACK = ${HALL.z0.toFixed(1)};
+  const float FLOOR_Y = ${GROUND_Y.toFixed(2)};
+  const vec3 PADS[4] = vec3[4](${PADDING.map(glslVec3).join(', ')});
+  const vec3 WALL = ${glslVec3(COLOR.wall)};
+  const vec3 RAIL = ${glslVec3(COLOR.red)};
+  const vec3 ROOF = ${glslVec3(COLOR.ceiling)};
+  const vec3 UP = vec3(0.0, 1.0, 0.0);
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+  }
+
+  // Signed distance to the park's outline (negative inside).
+  float outline(vec2 p) {
+    float d = dot(p - OUTLINE[0], p - OUTLINE[0]);
+    float s = 1.0;
+    for (int i = 0, j = ${OUTLINE.length - 1}; i < ${OUTLINE.length}; j = i, i++) {
+      vec2 e = OUTLINE[j] - OUTLINE[i];
+      vec2 w = p - OUTLINE[i];
+      vec2 b = w - e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);
+      d = min(d, dot(b, b));
+      bvec3 c = bvec3(p.y >= OUTLINE[i].y, p.y < OUTLINE[j].y, e.x * w.y > e.y * w.x);
+      if (all(c) || all(not(c))) s = -s;
+    }
+    return s * sqrt(d);
+  }
+
+  // Distance to the nearest line of a square grid, in world units.
+  float gridLine(vec2 p, float size) {
+    vec2 q = abs(fract(p / size + 0.5) - 0.5) * size;
+    return min(q.x, q.y);
+  }
+
+  // How much of the pixel's reflection lands on a round ceiling light, filtered by its footprint.
+  float lamps(vec2 hit) {
+    vec2 local = mod(hit + LAMP_PITCH * 0.5, LAMP_PITCH) - LAMP_PITCH * 0.5;
+    float blur = max(length(fwidth(hit)), 1e-3);
+    float inside = clamp((LAMP_RADIUS - length(local)) / blur + 0.5, 0.0, 1.0);
+    float average = 3.14159 * LAMP_RADIUS * LAMP_RADIUS / (LAMP_PITCH * LAMP_PITCH);
+    return mix(inside, average, smoothstep(0.6, 3.0, blur));
+  }
+
+  // What a ray off the polished floor meets first: a wall, padded in colours along its foot,
+  // or the dark ceiling and its lights. Softer the further it travels, as on a real floor.
+  vec3 mirrored(vec3 from, vec3 r) {
+    float never = 1e5;
+    float back = r.z < 0.0 ? (BACK - from.z) / r.z : never;
+    float side = min(r.x < 0.0 ? (WALLS.x - from.x) / r.x : never, r.x > 0.0 ? (WALLS.y - from.x) / r.x : never);
+    float roof = (CEILING - from.y) / max(r.y, 1e-3);
+    float t = min(min(back, side), roof);
+    vec3 hit = from + r * t;
+    vec3 above = mix(ROOF * 1.4, vec3(1.0, 0.96, 0.88) * 1.3, lamps(hit.xz));
+
+    bool onBack = back < side;
+    float pad = onBack ? floor((hit.x - WALLS.x) / 6.0) : floor((hit.z - BACK) / 6.0) + (r.x < 0.0 ? 1.0 : 3.0);
+    float h = hit.y - FLOOR_Y;
+    float soft = 0.15 + t * 0.015;
+    vec3 wall = mix(PADS[int(mod(pad, 4.0))] * 1.05, RAIL, smoothstep(6.4 - soft, 6.4 + soft, h));
+    wall = mix(wall, WALL * 1.15, smoothstep(8.4 - soft, 8.4 + soft, h));
+    return roof < min(back, side) ? above : wall;
+  }
+
+  void main() {
+    vec2 p = vWorld.xz;
+    vec3 view = normalize(cameraPosition - vWorld);
+    float pixel = max(length(fwidth(p)), 1e-4);
+    float edge = outline(p);
+
+    vec3 albedo;
+    float gloss;
+    float mirror;
+    float occlusion = 1.0;
+
+    if (edge < MATS) {
+      // Interlocking foam mats, two studs a side, the joins cut as jigsaw tabs.
+      vec2 tabs = vec2(sin(p.y * 4.712), sin(p.x * 4.712));
+      vec2 q = p + 0.13 * vec2(smoothstep(-0.3, 0.3, tabs.x) * 2.0 - 1.0, smoothstep(-0.3, 0.3, tabs.y) * 2.0 - 1.0);
+      vec2 mat = floor(q * 0.5);
+      int pick = int(mod(mat.x + mat.y * 2.0, 4.0));
+      albedo = MAT_COLOURS[pick] * (0.94 + 0.08 * hash(floor(p * 9.0)));
+      // Foam is soft and a little chalky: keep it from shouting over the bricks.
+      albedo = mix(albedo, vec3(dot(albedo, vec3(0.3, 0.59, 0.11))), 0.25) * 0.92;
+      float join = 1.0 - smoothstep(0.03, 0.03 + pixel, gridLine(q, 2.0));
+      albedo *= 1.0 - 0.45 * join;
+      gloss = 0.05;
+      mirror = 0.0;
+    } else {
+      // Polished floor in big tiles, darker where it meets the walls.
+      vec2 tile = floor(p / 4.0);
+      albedo = FLOOR * (0.97 + 0.05 * hash(tile));
+      float groove = 1.0 - smoothstep(0.025, 0.025 + pixel, gridLine(p, 4.0));
+      albedo *= 1.0 - 0.18 * groove;
+      // The mats stand a little proud of the floor: a soft shadow along their edge.
+      occlusion *= 1.0 - 0.3 * exp(-(edge - MATS) * 5.0);
+      float toWall = min(min(p.x - WALLS.x, WALLS.y - p.x), p.y - BACK);
+      occlusion *= 1.0 - 0.35 * exp(-max(toWall, 0.0) * 0.5);
+      gloss = 0.12;
+      mirror = 1.0;
+    }
+
+    // Contact shadow where the park meets the floor.
+    occlusion *= 1.0 - 0.4 * exp(-max(edge, 0.0) * 1.3);
+
+    vec3 colour = shade(albedo, gloss, UP, vWorld) * occlusion;
+
+    // Outside any branch: the light filtering needs screen-space derivatives.
+    float fresnel = 0.04 + 0.96 * pow(1.0 - max(view.y, 0.0), 5.0);
+    vec3 seen = mirrored(vWorld, reflect(-view, UP));
+    colour = mix(colour, seen, mirror * (0.07 + 0.6 * fresnel));
+
+    gl_FragColor = vec4(haze(colour, vWorld, 0.0), 1.0);
+    #include <colorspace_fragment>
+  }
+`;
+
+/** Lights in the ceiling: flat glowing panels, unaffected by anything. */
+const LAMP_FRAGMENT = /* glsl */ `
+  void main() {
+    gl_FragColor = vec4(1.0, 0.97, 0.9, 1.0);
+    #include <colorspace_fragment>
+  }
+`;
+
+const LAMP_VERTEX = /* glsl */ `
+  void main() {
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
 function placeholderLight() {
   const texture = new THREE.Data3DTexture(new Uint8Array([190, 195, 205, 200]), 1, 1, 1);
   texture.needsUpdate = true;
@@ -353,9 +535,13 @@ const { min, max } = LIGHT_VOLUME;
 export const shared = {
   uLight: { value: placeholderLight() as THREE.Data3DTexture },
   uLightMin: { value: new THREE.Vector3(...min) },
+  uLightMax: { value: new THREE.Vector3(...max) },
   uLightInvSize: { value: new THREE.Vector3(1 / (max[0] - min[0]), 1 / (max[1] - min[1]), 1 / (max[2] - min[2])) },
   uBuilt: { value: 0 },
   uTime: { value: 0 },
+  uHaze: { value: new THREE.Color(HAZE) },
+  /** Distance to what the camera looks at: the world hazes over from a little past it. */
+  uFocus: { value: 80 },
 };
 
 export function createMaterials() {
@@ -389,6 +575,8 @@ export function createMaterials() {
       transparent: true,
       depthWrite: false,
     }),
+    floor: new THREE.ShaderMaterial({ vertexShader: FLOOR_VERTEX, fragmentShader: FLOOR_FRAGMENT, uniforms: shared }),
+    lamp: new THREE.ShaderMaterial({ vertexShader: LAMP_VERTEX, fragmentShader: LAMP_FRAGMENT }),
   };
 }
 

@@ -228,3 +228,57 @@ export function boat(hullColor: number, seatColor: number, materials: Materials,
 
   return { group, wheels };
 }
+
+/** The rope circuit's steps are hanging logs, as in the real hall: pale end grain, a shade apiece. */
+export function addLogs(batch: Batch, planks: Plank[]) {
+  for (const plank of planks) {
+    const acrossX = plank.width > plank.depth;
+    const length = Math.max(plank.width, plank.depth);
+    const turn = (geometry: THREE.BufferGeometry) => (acrossX ? geometry.rotateZ(Math.PI / 2) : geometry.rotateX(Math.PI / 2));
+    const wood = new THREE.Color(COLOR.wood).offsetHSL(0, 0, plank.shade).getHex();
+    const delay = 0.7;
+    batch.add(turn(new THREE.CylinderGeometry(0.34, 0.34, length, 14)).translate(plank.x, plank.y, plank.z), wood, { gloss: 0.25, delay });
+    for (const end of [-1, 1]) {
+      const cap = turn(new THREE.CylinderGeometry(0.27, 0.27, 0.05, 14)).translate(
+        plank.x + (acrossX ? end * (length / 2 + 0.02) : 0),
+        plank.y,
+        plank.z + (acrossX ? 0 : end * (length / 2 + 0.02)),
+      );
+      batch.add(cap, 0xdcae74, { gloss: 0.1, delay });
+    }
+  }
+}
+
+/** Padded tube railing in the venue's colours along the open side of the pool. */
+export function addPoolRail(batch: Batch) {
+  const z = POOL.z1 + 0.9;
+  const colours = [0xff3d9a, 0x39d353, 0x2f7be3, COLOR.red];
+  const posts = [1.6, 5.8, 10, 14.2];
+  const delay = 0.8;
+  // Low enough that the boat stop still sees the boats over it.
+  const top = 1.9;
+  for (const x of posts) batch.add(barBetween(vector([x, 0, z]), vector([x, top, z]), 0.18, 10), COLOR.red, { delay });
+  for (let i = 0; i < posts.length - 1; i++) {
+    for (const [h, shift] of [[top, 0], [0.95, 2]] as const) {
+      batch.add(barBetween(vector([posts[i], h, z]), vector([posts[i + 1], h, z]), 0.23, 12), colours[(i + shift) % colours.length], { delay });
+    }
+  }
+  for (const x of posts) batch.add(new THREE.SphereGeometry(0.25, 12, 8).translate(x, top, z), COLOR.red, { delay });
+}
+
+/** The bright green railing of the real pitch, along its two open sides. */
+export function addPitchFence(batch: Batch) {
+  const green = 0x39d353;
+  const { x0, x1, z1, top } = FIELD;
+  const delay = 0.8;
+  const front = z1 + 0.5;
+  const side = x1 + 0.5;
+  const rail = (a: [number, number], b: [number, number]) => {
+    for (const h of [1.3, 2.6]) batch.add(barBetween(vector([a[0], top + h, a[1]]), vector([b[0], top + h, b[1]]), 0.1, 8), green, { delay, gloss: 0.8 });
+  };
+  const post = (x: number, z: number) => batch.add(barBetween(vector([x, top, z]), vector([x, top + 2.7, z]), 0.13, 8), green, { delay, gloss: 0.8 });
+  for (let x = x0 + 0.3; x <= side + 0.01; x += (side - x0 - 0.3) / 3) post(x, front);
+  for (let z = 2.8; z < front; z += (front - 2.8) / 5) post(side, z);
+  rail([x0 + 0.3, front], [side, front]);
+  rail([side, 2.8], [side, front]);
+}

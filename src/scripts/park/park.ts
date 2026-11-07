@@ -3,10 +3,11 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Figure } from './figure.ts';
 import { Batch, ballField, barBetween, breathe, brickField, clamp01, studField } from './kit.ts';
 import {
-  BIG_ZORB, BRICK, BRIDGE_Y, COLOR, DECK, DECK_WATER_Y, FIELD, LAMPS, POOL, SMALL_ZORB, TOWER, WALL_TOP, WATER_Y, createLayout, seededRandom,
+  BIG_ZORB, BRICK, BRIDGE_Y, COLOR, DECK, DECK_WATER_Y, FIELD, GROUND_Y, HALL, LAMPS, POOL, SMALL_ZORB, TOWER, WALL_TOP, WATER_Y, createLayout, seededRandom,
 } from './layout.ts';
-import { addBridge, addClimbingHolds, addGoal, addMezzanineRail, addPitchLines, addPlate, boat } from './props.ts';
+import { addBridge, addClimbingHolds, addGoal, addLogs, addMezzanineRail, addPitchFence, addPitchLines, addPlate, addPoolRail, boat } from './props.ts';
 import { createMaterials, shared, type Materials } from './toy.ts';
+import { buildVenue } from './venue.ts';
 
 const pingPong = (time: number, period: number) => {
   const t = (time / period) % 2;
@@ -57,14 +58,19 @@ function ballSpots() {
 /** Soft dark patches under what moves: the baked light knows nothing about moving things. */
 function contactShadows(count: number, materials: Materials) {
   const plane = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
-  const opacity = new Float32Array(count + 1).fill(0.62);
-  opacity[0] = 0.5;
-  plane.setAttribute('iOpacity', new THREE.InstancedBufferAttribute(opacity, 1));
-  const mesh = new THREE.InstancedMesh(plane, materials.blob, count + 1);
+  plane.setAttribute('iOpacity', new THREE.InstancedBufferAttribute(new Float32Array(count).fill(0.62), 1));
+  const mesh = new THREE.InstancedMesh(plane, materials.blob, count);
   mesh.frustumCulled = false;
   mesh.renderOrder = 1;
-  // Instance 0 is the shadow of the whole park on the page.
-  mesh.setMatrixAt(0, new THREE.Matrix4().compose(new THREE.Vector3(13.5, -1.3, 14), new THREE.Quaternion(), new THREE.Vector3(62, 1, 62)));
+  return mesh;
+}
+
+/** The hall's floor, wall to wall. */
+function floor(materials: Materials) {
+  const { x0, x1, z0, front } = HALL;
+  const plane = new THREE.PlaneGeometry(x1 - x0, front - z0).rotateX(-Math.PI / 2).translate((x0 + x1) / 2, GROUND_Y, (z0 + front) / 2);
+  const mesh = new THREE.Mesh(plane, materials.floor);
+  mesh.frustumCulled = false;
   return mesh;
 }
 
@@ -77,9 +83,12 @@ export async function buildPark(studSegments: number) {
   addPlate(statics);
   addBridge(statics, layout.backBridge);
   addBridge(statics, layout.leftBridge);
+  addLogs(statics, layout.planks);
   await breathe();
   addClimbingHolds(statics);
   addPitchLines(statics);
+  addPitchFence(statics);
+  addPoolRail(statics);
   addGoal(statics, 24, FIELD.top, 4.6, 6.2, 5, 1.8);
   addMezzanineRail(statics, 6 * BRICK + 0.4);
   statics.add(barBetween(new THREE.Vector3(14.4, WALL_TOP, 1.5), new THREE.Vector3(14.1, BRIDGE_Y, 1.5), 0.09, 8), COLOR.yellow);
@@ -92,9 +101,13 @@ export async function buildPark(studSegments: number) {
     statics.add(barBetween(end, new THREE.Vector3(end.x, WALL_TOP + 0.1, 0.8), 0.07, 8), COLOR.yellow);
   }
 
+  const venue = await buildVenue(materials);
   await breathe();
   root.add(
-    brickField(layout.bricks, layout.planks, materials),
+    venue.root,
+    floor(materials),
+    // The planks are drawn as logs (addLogs); the bake still counts them as boards.
+    brickField(layout.bricks, [], materials),
     studField(layout.bricks, studSegments, materials),
     ballField(ballSpots(), materials),
     statics.mesh(materials.mesh),
@@ -132,8 +145,8 @@ export async function buildPark(studSegments: number) {
   // Boats.
   const yellowBoat = boat(COLOR.yellow, COLOR.orange, materials);
   const tealBoat = boat(0x18a7c4, 0x0d6f94, materials);
-  const girl = new Figure({ shirt: 0xf6a6bd, pants: 0xf6a6bd, hair: 'ponytail' }, materials);
-  const boy = new Figure({ shirt: COLOR.blueBright, pants: COLOR.navy, hair: 'swept' }, materials);
+  const girl = new Figure({ shirt: 0xf6a6bd, pants: 0xf6a6bd, hair: 'ponytail', print: { kind: 'logo', color: COLOR.yellow } }, materials);
+  const boy = new Figure({ shirt: COLOR.blueBright, pants: COLOR.navy, hair: 'swept', print: { kind: 'logo', color: COLOR.yellow } }, materials);
   for (const [figure, vessel] of [[girl, yellowBoat], [boy, tealBoat]] as const) {
     figure.sit();
     figure.root.position.set(-0.75, 0.2, 0);
@@ -162,13 +175,18 @@ export async function buildPark(studSegments: number) {
   smallZorb.position.set(SMALL_ZORB.x, DECK.top + SMALL_ZORB.r * 0.8, SMALL_ZORB.z);
   root.add(bigZorb, smallZorb);
 
+  // Somebody is always inside the big one, walking on the water like in the photos.
+  const zorbKid = new Figure({ shirt: COLOR.red, pants: COLOR.red, hair: 'short', delay: 0.9 }, materials);
+  zorbKid.body.rotation.x = 0.12;
+  root.add(zorbKid.root);
+
   await breathe();
 
   // Football.
   const y = FIELD.top;
-  const keeper = new Figure({ shirt: COLOR.yellow, pants: COLOR.black, hair: 'short' }, materials);
-  const white = new Figure({ shirt: COLOR.white, pants: COLOR.blue, hair: 'short' }, materials);
-  const red = new Figure({ shirt: COLOR.red, pants: COLOR.black, hair: 'swept' }, materials);
+  const keeper = new Figure({ shirt: COLOR.yellow, pants: COLOR.black, hair: 'short', print: { kind: 'logo', color: COLOR.red } }, materials);
+  const white = new Figure({ shirt: COLOR.white, pants: COLOR.blue, hair: 'short', print: { kind: 'stripe', color: COLOR.blueBright } }, materials);
+  const red = new Figure({ shirt: COLOR.red, pants: COLOR.black, hair: 'swept', print: { kind: 'stripe', color: COLOR.white } }, materials);
   keeper.root.position.set(24, y, 5.6);
   keeper.armLeft.rotation.z = 0.9;
   keeper.armRight.rotation.z = -0.9;
@@ -198,6 +216,7 @@ export async function buildPark(studSegments: number) {
     { object: tealBoat.group, size: 8, ground: WATER_Y + 0.02 },
     { object: bigZorb, size: 9, ground: DECK_WATER_Y + 0.02 },
     { object: smallZorb, size: 5.4, ground: DECK_WATER_Y + 0.02 },
+    ...venue.shadowed,
   ];
   const shadows = contactShadows(shadowed.length, materials);
   root.add(shadows);
@@ -211,16 +230,25 @@ export async function buildPark(studSegments: number) {
 
   function update(time: number, tour: number) {
     shared.uTime.value = time;
+    venue.update(time);
 
     bigZorb.position.y = DECK.top + BIG_ZORB.r * 0.8 + Math.sin(time * 0.8) * 0.1;
     bigZorb.rotation.set(Math.sin(time * 0.21) * 0.26, Math.sin(time * 0.13) * 0.4, Math.cos(time * 0.17) * 0.2);
+    const stride = Math.sin(time * 4.2);
+    zorbKid.root.position.set(BIG_ZORB.x, DECK_WATER_Y + 0.08 + Math.sin(time * 0.8) * 0.1 + Math.abs(stride) * 0.08, BIG_ZORB.z);
+    zorbKid.root.rotation.y = 0.6 + Math.sin(time * 0.3) * 0.7;
+    zorbKid.legLeft.rotation.x = stride * 0.55;
+    zorbKid.legRight.rotation.x = -stride * 0.55;
+    zorbKid.armLeft.rotation.z = -1.1 + stride * 0.15;
+    zorbKid.armRight.rotation.z = 1.1 + stride * 0.15;
+    zorbKid.head.rotation.y = -0.4;
     smallZorb.position.y = DECK.top + SMALL_ZORB.r * 0.8 + Math.sin(time * 0.9 + 1.4) * 0.08;
     smallZorb.rotation.set(Math.cos(time * 0.24) * 0.3, Math.sin(time * 0.16) * 0.5, 0);
 
     // Walker: paces the back bridge, turning at each end.
     const pace = pingPong(time + 7, 8);
     const along = 0.34 + pace * 0.42;
-    walker.root.position.set(3.2 + along * 15.4, BRIDGE_Y + 0.17 + Math.abs(Math.sin(time * 3.4)) * 0.05 - Math.sin(along * Math.PI) * 0.38, 2.4);
+    walker.root.position.set(3.2 + along * 15.4, BRIDGE_Y + 0.34 + Math.abs(Math.sin(time * 3.4)) * 0.05 - Math.sin(along * Math.PI) * 0.38, 2.4);
     const goingRight = Math.floor((time + 7) / 8) % 2 === 0;
     walker.root.rotation.y = goingRight ? Math.PI / 2 : -Math.PI / 2;
     const step = Math.sin(time * 3.4) * 0.6;
@@ -286,7 +314,7 @@ export async function buildPark(studSegments: number) {
     shadowed.forEach(({ object, size, ground = FIELD.top + 0.02 }, i) => {
       shadowAt.set(object.position.x, ground, object.position.z);
       shadowMatrix.compose(shadowAt, flat, shadowSize.set(size, 1, size));
-      shadows.setMatrixAt(i + 1, shadowMatrix);
+      shadows.setMatrixAt(i, shadowMatrix);
     });
     shadows.instanceMatrix.needsUpdate = true;
   }

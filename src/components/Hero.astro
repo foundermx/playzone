@@ -8,28 +8,35 @@ import brickRedRight from '../assets/img/brick-red-right.webp';
 import brickYellow from '../assets/img/brick-yellow.webp';
 import { LINKS } from '../data/site';
 
-/** Each brick flies in from its own corner of the screen, staggered, and lands with a bounce. */
+/**
+ * Each brick flies in from its own corner of the screen (`from`, in rem), staggered, and lands with
+ * a bounce. When the zoom starts they fly back out the same way, past the camera.
+ */
 const bricks = [
-  { src: brickRedLeft, name: 'red-left', from: '-24rem -16rem', spin: '-60deg', delay: '0.05s' },
-  { src: brickYellow, name: 'yellow', from: '24rem -18rem', spin: '55deg', delay: '0.2s' },
-  { src: brickBlue, name: 'blue', from: '-22rem 18rem', spin: '50deg', delay: '0.32s' },
-  { src: brickGreen, name: 'green', from: '-4rem 24rem', spin: '-45deg', delay: '0.46s' },
-  { src: brickRedRight, name: 'red-right', from: '22rem 20rem', spin: '-50deg', delay: '0.58s' },
+  { src: brickRedLeft, name: 'red-left', from: [-24, -16], spin: '-60deg', delay: '0.05s' },
+  { src: brickYellow, name: 'yellow', from: [24, -18], spin: '55deg', delay: '0.2s' },
+  { src: brickBlue, name: 'blue', from: [-22, 18], spin: '50deg', delay: '0.32s' },
+  { src: brickGreen, name: 'green', from: [-4, 24], spin: '-45deg', delay: '0.46s' },
+  { src: brickRedRight, name: 'red-right', from: [22, 20], spin: '-50deg', delay: '0.58s' },
 ];
+
+/** The shop's glass doors in hero.webp, as fractions of the image: centre x, centre y, width, height. */
+const DOOR = [0.659, 0.843, 0.147, 0.164];
 ---
 
-<section class="hero" id="inicio">
-  <div class="art">
+<section class="hero">
+  <div class="art" data-door={DOOR.join(' ')} style={`--door-x: ${DOOR[0] * 100}%; --door-y: ${DOOR[1] * 100}%; --door-w: ${DOOR[2] * 100}%; --door-h: ${DOOR[3] * 100}%`}>
     <Picture
       src={art}
       formats={['avif']}
       fallbackFormat="webp"
-      widths={[480, 720, 960, 1280, 1824]}
-      sizes="(max-width: 859px) 100vw, 52vw"
-      alt="Niño sonriendo asomado detrás del edificio de Playzone Córdoba, decorado con bloques de colores"
+      widths={[480, 720, 960, 1198]}
+      sizes="(max-width: 859px) 100vw, 46vw"
+      alt="Niño sonriendo detrás del edificio de Playzone, azul y decorado con bloques de colores gigantes"
       loading="eager"
       fetchpriority="high"
     />
+    <span class="glow" aria-hidden="true"></span>
   </div>
 
   <div class="copy">
@@ -42,7 +49,7 @@ const bricks = [
   </div>
 
   {
-    bricks.map(({ src, name, from, spin, delay }) => (
+    bricks.map(({ src, name, from: [x, y], spin, delay }) => (
       <Image
         class={`brick brick--${name}`}
         src={src}
@@ -50,17 +57,19 @@ const bricks = [
         widths={[200, 400]}
         sizes="(max-width: 859px) 24vw, 170px"
         loading="eager"
-        style={`--from: ${from}; --spin: ${spin}; --delay: ${delay}`}
+        style={`--from: ${x}rem ${y}rem; --out-x: ${x}rem; --out-y: ${y}rem; --spin: ${spin}; --delay: ${delay}`}
       />
     ))
   }
 </section>
 
 <style>
+  /* The art is a little taller than wide (1198 x 1313): --ratio is its height over its width. */
   .hero {
-    --art: max(45.6rem, 51.6vw);
+    --ratio: 1.096;
+    --art: max(40rem, 46vw);
     position: relative;
-    height: max(43rem, calc(var(--art) * 0.9));
+    height: max(43rem, calc(var(--art) * var(--ratio) + 1rem));
     overflow: clip;
   }
 
@@ -143,6 +152,49 @@ const bricks = [
     .brick { animation: none; }
   }
 
+  /*
+   * Live (ParkTour pins the hero over the 3D park): the hero fills the screen under the header,
+   * and intro.ts drives the dive through the door with --p, --zoom, --shift, --to-x and --to-y.
+   */
+  .glow { display: none; }
+
+  :global(.is-live) .hero {
+    --art: min(max(40rem, 46vw), calc((100svh - var(--header-h) - 2.4rem) / var(--ratio)));
+    height: calc(var(--art) * var(--ratio) + 1rem);
+    overflow: visible;
+  }
+
+  :global(.is-live) .copy {
+    opacity: calc(1 - var(--p, 0) * 4.5);
+    transform: translateX(calc(var(--p, 0) * -16rem));
+  }
+
+  :global(.is-live) .art {
+    transform-origin: var(--door-x) var(--door-y);
+    transform: translate(calc(var(--to-x, 0px) * var(--shift, 0)), calc(var(--to-y, 0px) * var(--shift, 0))) scale(var(--zoom, 1));
+    will-change: transform;
+  }
+
+  /* Light from inside the shop: the glass turns the colour of the park as the camera reaches it. */
+  :global(.is-live) .glow {
+    display: block;
+    position: absolute;
+    left: calc(var(--door-x) - var(--door-w) / 2);
+    top: calc(var(--door-y) - var(--door-h) / 2);
+    width: var(--door-w);
+    height: var(--door-h);
+    border-radius: 12%;
+    background: radial-gradient(closest-side, #fff, var(--panel) 55%, rgb(212 238 253 / 0));
+    opacity: clamp(0, (var(--p, 0) - 0.3) / 0.4, 1);
+    scale: calc(1 + clamp(0, (var(--p, 0) - 0.3) / 0.4, 1) * 0.5);
+  }
+
+  /* Back out past the camera: transform, so it stacks on the landing animation instead of fighting it. */
+  :global(.is-live) .brick {
+    --fly: calc(var(--p, 0) * var(--p, 0) * 9);
+    transform: translate(calc(var(--out-x) * var(--fly)), calc(var(--out-y) * var(--fly))) scale(calc(1 + var(--fly)));
+  }
+
   @media (width < 860px) {
     .hero { height: auto; padding-top: 1.2rem; }
 
@@ -166,5 +218,17 @@ const bricks = [
     .brick--blue { top: 21rem; bottom: auto; left: -2.4rem; width: 8rem; }
     .brick--green { bottom: 0.6rem; left: 2rem; right: auto; width: 7.4rem; }
     .brick--red-right { bottom: 0; right: -1.6rem; width: 8rem; }
+
+    /*
+     * Copy first and the building under it, both on the first screen: the door starts low and the
+     * picture, mostly kid above the door, grows up over the space the copy leaves.
+     */
+    :global(.is-live) .hero { display: flex; flex-direction: column; height: auto; }
+    :global(.is-live) .copy { order: -1; }
+
+    :global(.is-live) .art {
+      width: clamp(20rem, calc((100svh - var(--header-h) - 31rem) / var(--ratio)), 100%);
+      margin-inline: auto;
+    }
   }
 </style>

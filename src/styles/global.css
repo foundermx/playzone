@@ -7,7 +7,7 @@ html {
   font-size: calc(min(100vw, 1180px) / 72.4);
   background: var(--bg);
   color: var(--navy);
-  scroll-padding-top: 6rem;
+  scroll-padding-top: calc(var(--header-h) + 1rem);
   -webkit-text-size-adjust: none;
 }
 
@@ -30,11 +30,20 @@ html {
   --blue: #1270f0;
   --royal: #0a3fae;
 
+  /* Exact height of the sticky header: the hero tucks under it and fills the rest of the screen. */
+  --header-h: 5.1rem;
+
   --text: max(1.1rem, 15px);
   --press: cubic-bezier(0.2, 0.8, 0.3, 1);
 
   /* Three short strokes used beside the headings; mirrored with scale. */
   --burst: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 50' fill='none' stroke='%23fdc904' stroke-width='6.5' stroke-linecap='round'%3E%3Cpath d='M9 5l19 10M4 25h24M9 45l19-10'/%3E%3C/svg%3E");
+  /* The same strokes in navy, for yellow backgrounds. */
+  --burst-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 50' fill='none' stroke='%230c2a6e' stroke-width='6.5' stroke-linecap='round'%3E%3Cpath d='M9 5l19 10M4 25h24M9 45l19-10'/%3E%3C/svg%3E");
+}
+
+@media (width < 860px) {
+  :root { --header-h: 6.8rem; }
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -128,6 +137,75 @@ h1, h2 {
 }
 
 .btn--outline:active { box-shadow: inset 0 0 0 0.12rem var(--navy); }
+
+/*
+ * Scroll-linked "click into place". Give an element --q (0..1, from its --p); --off then runs
+ * from 1 (away) to 0 (in place), dipping just below 0 on the way: the overshoot of a brick
+ * pressed onto its studs. Multiply it into any offset.
+ */
+.snap {
+  --q: 1;
+  --r: calc(1 - var(--q));
+  --off: calc(2.2 * var(--r) * var(--r) * var(--r) - 1.2 * var(--r) * var(--r));
+}
+
+/*
+ * A brick dropped onto the page: it falls (faster and faster), tumbling, squashes on impact,
+ * bounces twice and settles. scripts/drop.ts adds .is-dropped to [data-drop] as it comes into
+ * view; .drop is the part that falls, the [data-drop] element itself or a child of it.
+ * Per brick: --fall (how far above it starts), --tumble (turn on the way down), --drop-delay.
+ */
+@keyframes brick-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(var(--fall, -100vh)) rotate(var(--tumble, 90deg));
+    animation-timing-function: cubic-bezier(0.45, 0, 0.9, 0.4);
+  }
+  10% { opacity: 1; }
+  52% {
+    transform: translateY(0) scale(1.1, 0.86);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  68% {
+    transform: translateY(-18%) rotate(calc(var(--tumble, 90deg) * -0.05)) scale(0.96, 1.05);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.45);
+  }
+  82% {
+    transform: translateY(0) scale(1.04, 0.95);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  91% {
+    transform: translateY(-4%);
+    animation-timing-function: ease-in;
+  }
+  100% { opacity: 1; transform: none; }
+}
+
+.can-drop [data-drop]:not(.is-dropped) .drop,
+.can-drop .drop[data-drop]:not(.is-dropped) { opacity: 0; }
+
+.can-drop .is-dropped .drop,
+.can-drop .drop.is-dropped {
+  transform-origin: 50% 100%;
+  animation: brick-drop var(--drop-time, 1.1s) var(--drop-delay, 0s) both;
+}
+
+/* Headings that rise into place, their yellow strokes popping out once they land. */
+.reveal { --p: 1; }
+
+.reveal > .burst {
+  opacity: clamp(0, var(--p) * 2.5, 1);
+  translate: 0 calc((1 - clamp(0, var(--p) * 1.5, 1)) * 1.8rem);
+}
+
+.reveal .burst::before, .reveal .burst::after {
+  transform: scale(clamp(0, (var(--p) - 0.55) / 0.45, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal > .burst { opacity: 1; translate: none; }
+  .reveal .burst::before, .reveal .burst::after { transform: none; }
+}
 
 /* Yellow strokes on one or both sides of a heading. */
 .burst { position: relative; display: inline-block; }

@@ -43,7 +43,7 @@ import { LINKS, NAV } from '../data/site';
     display: flex;
     align-items: center;
     max-width: 72.4rem;
-    min-height: 4.9rem;
+    min-height: var(--header-h);
     margin-inline: auto;
     padding: 0.2rem 3rem;
   }
@@ -95,7 +95,7 @@ import { LINKS, NAV } from '../data/site';
   .menu-button { display: none; }
 
   @media (width < 860px) {
-    .bar { min-height: 6.2rem; padding: 0.4rem 1.4rem; gap: 1rem; }
+    .bar { padding: 0.4rem 1.4rem; gap: 1rem; }
     .logo { width: 13.6rem; margin-right: auto; }
     .logo span { font-size: 1.04rem; }
 

@@ -1,0 +1,108 @@
+---
+import { Image } from 'astro:assets';
+import blue from '../assets/img/brick-blue.webp';
+import green from '../assets/img/brick-green.webp';
+import redLeft from '../assets/img/brick-red-left.webp';
+import redRight from '../assets/img/brick-red-right.webp';
+import yellow from '../assets/img/brick-yellow.webp';
+
+const SOURCES = { blue, green, yellow, 'red-left': redLeft, 'red-right': redRight };
+
+export interface Piece {
+  brick: keyof typeof SOURCES;
+  /** Where it lands on wide screens, as CSS left and top, and its width in rem. */
+  at: [string, string, number];
+  /** Where it lands on phones; left out, the piece only shows on wide screens. */
+  phone?: [string, string, number];
+  /** How far it turns on the way down, in degrees. */
+  tumble: number;
+}
+
+interface Props {
+  pieces: Piece[];
+}
+
+/**
+ * Loose bricks beside a section, the same renders that fly into the hero. Each one is dropped
+ * from above the screen as it comes into view (scripts/drop.ts), one after another, and lands
+ * with a bounce on its own little shadow. Place inside a positioned parent.
+ */
+const { pieces } = Astro.props;
+---
+
+<div class="flying" aria-hidden="true">
+  {
+    pieces.map(({ brick, at: [x, y, size], phone, tumble }, i) => (
+      <span
+        class:list={['piece', { 'piece--phone': phone }]}
+        data-drop
+        style={[
+          `--x: ${x}; --y: ${y}; --w: ${size}rem; --tumble: ${tumble}deg; --drop-delay: ${i * 0.12}s`,
+          phone && `--px: ${phone[0]}; --py: ${phone[1]}; --pw: ${phone[2]}rem`,
+        ].filter(Boolean).join('; ')}
+      >
+        <Image class="drop" src={SOURCES[brick]} alt="" widths={[200, 400]} sizes="(max-width: 859px) 24vw, 170px" loading="lazy" />
+      </span>
+    ))
+  }
+</div>
+
+<style>
+  .flying {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  /* The span stays put and is what gets watched; the picture inside it falls. */
+  .piece {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    width: var(--w);
+  }
+
+  .piece :global(img) {
+    position: relative;
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 0.3rem 0.4rem rgb(10 40 110 / 0.14));
+  }
+
+  /* Its shadow on the page: faint and small while it falls, full where it lands. */
+  .piece::after {
+    content: '';
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    bottom: -0.5rem;
+    height: 1.2rem;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(10 40 110 / 0.24), rgb(10 40 110 / 0));
+  }
+
+  :global(.can-drop) .piece:not(:global(.is-dropped))::after { opacity: 0; }
+
+  :global(.can-drop) .piece:global(.is-dropped)::after {
+    animation: landing var(--drop-time, 1.1s) var(--drop-delay) both;
+  }
+
+  @keyframes landing {
+    0% { opacity: 0; transform: scale(0.2); animation-timing-function: cubic-bezier(0.45, 0, 0.9, 0.4); }
+    52% { opacity: 1; transform: scale(1.15); }
+    68% { opacity: 0.6; transform: scale(0.8); }
+    82% { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 1; transform: none; }
+  }
+
+  @media (width < 860px) {
+    .piece { display: none; }
+
+    .piece--phone {
+      display: block;
+      left: var(--px);
+      top: var(--py);
+      width: var(--pw);
+    }
+  }
+</style>

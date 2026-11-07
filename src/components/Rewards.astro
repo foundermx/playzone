@@ -3,14 +3,14 @@ import { REWARD_TIERS } from '../data/site';
 ---
 
 <section class="rewards" id="recompensas">
-  <h2><span class="burst">Programa de<br />recompensas</span></h2>
+  <h2 class="reveal" data-scroll-progress data-start="0.95" data-end="0.7"><span class="burst">Programa de<br />recompensas</span></h2>
 
   <div class="plan">
-    <p class="rate"><span class="burst burst--both">1 punto = 1 peso</span></p>
-    <ul class="tiers" data-scroll-progress data-start="1" data-end="0.68">
+    <p class="rate reveal" data-scroll-progress data-start="0.95" data-end="0.72"><span class="burst burst--both">1 punto = 1 peso</span></p>
+    <ul class="tiers">
       {
         REWARD_TIERS.map(({ name, percent, tone }, i) => (
-          <li class={`tier tier--${tone}`} style={`--from: ${i * 0.16}; --to: ${0.68 + i * 0.16}`}>
+          <li class={`tier tier--${tone} drop`} data-drop style={`--drop-delay: ${i * 0.16}s; --tumble: ${[-40, 30, -24][i]}deg`}>
             <span class="name">{name}</span>
             <strong>{percent}%</strong>
           </li>
@@ -73,8 +73,6 @@ import { REWARD_TIERS } from '../data/site';
   }
 
   .tier {
-    --q: clamp(0, (var(--p) - var(--from)) / (var(--to) - var(--from)), 1);
-    --left: calc((1 - var(--q)) * (1 - var(--q)));
     --tone: var(--green);
     --edge: #0a7d1c;
     position: relative;
@@ -88,8 +86,6 @@ import { REWARD_TIERS } from '../data/site';
     color: #fff;
     line-height: 1;
     text-align: center;
-    transform: translateY(calc(3rem * var(--left)));
-    opacity: clamp(0, var(--q) * 2.5, 1);
   }
 
   .tier::before, .tier::after {
@@ -127,9 +123,6 @@ import { REWARD_TIERS } from '../data/site';
     letter-spacing: -0.02em;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .tier { transform: none; opacity: 1; }
-  }
 
   @media (width < 860px) {
     .rewards { display: block; width: 36rem; margin-top: 3.4rem; text-align: center; }

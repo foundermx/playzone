@@ -4,13 +4,15 @@ export const whatsappLink = (message: string) =>
   `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 
 export const PHONE_LABEL = '271 102 6999';
+export const PHONE = `+${WHATSAPP_NUMBER}`;
 export const ADDRESS = 'Av. 11 esq. Calle 26, No. 2601';
+export const CITY = 'Córdoba, Veracruz';
 
 export const LINKS = {
   book: whatsappLink('Hola, quiero apartar una fecha en Playzone Córdoba.'),
   presale: whatsappLink('Hola, quiero información de la preventa de Playzone Córdoba.'),
   hours: whatsappLink('Hola, ¿cuáles son los horarios de Playzone Córdoba?'),
-  map: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Playzone ${ADDRESS}, Córdoba, Veracruz`)}`,
+  map: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Playzone ${ADDRESS}, ${CITY}`)}`,
 };
 
 export const NAV = [

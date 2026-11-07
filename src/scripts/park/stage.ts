@@ -1,12 +1,15 @@
 import * as THREE from 'three';
-import { breathe, clamp01 } from './kit.ts';
+import { parkScroll } from './journey.ts';
+import { breathe, clamp01, smootherstep } from './kit.ts';
 import { buildPark } from './park.ts';
-import { loadLight } from './toy.ts';
+import { BACKDROP, loadLight, shared } from './toy.ts';
 import { LEGS, poseAt, stopAt } from './tour.ts';
 
 const FOV = 26;
 /** Pixels worth shading: past this a sharper canvas costs more than it shows. */
 const PIXEL_BUDGET = 3_400_000;
+/** Point of the hero zoom (0..1) where it starts fading and the park starts showing behind it. */
+const ENTER_FROM = 0.58;
 
 /** Scene plus the render loop that follows the scroll position. */
 export async function mountPark(section: HTMLElement) {
@@ -22,10 +25,10 @@ export async function mountPark(section: HTMLElement) {
   await breathe();
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: false, powerPreference: 'high-performance' });
-  renderer.setClearColor(0xd4eefd, 1);
+  renderer.setClearColor(BACKDROP, 1);
   await breathe();
 
-  const camera = new THREE.PerspectiveCamera(FOV, 1, 1, 260);
+  const camera = new THREE.PerspectiveCamera(FOV, 1, 1, 1400);
   const position = new THREE.Vector3();
   const target = new THREE.Vector3();
 
@@ -48,10 +51,9 @@ export async function mountPark(section: HTMLElement) {
   new ResizeObserver(resize).observe(stage);
   loadLight(`${import.meta.env.BASE_URL}park-light.dat`).catch(console.error);
 
-  const scrollTravel = () => section.offsetHeight - stage.offsetHeight;
+  const scroll = parkScroll(section);
   const goTo = (stop: number) => {
-    const top = section.getBoundingClientRect().top + scrollY;
-    scrollTo({ top: top + scrollTravel() * ((stop + 1) / LEGS), behavior: 'smooth' });
+    scrollTo({ top: scroll.scrollFor((stop + 1) / LEGS), behavior: 'smooth' });
   };
   dots.forEach((dot, i) => dot.addEventListener('click', () => goTo(i)));
 
@@ -84,13 +86,18 @@ export async function mountPark(section: HTMLElement) {
     frameTime += (delta * 1000 - frameTime) * 0.05;
     last = now;
 
-    const top = section.getBoundingClientRect().top;
-    const wanted = clamp01(-top / scrollTravel());
+    const { intro, tour: wanted } = scroll.progress();
     progress = progress < 0 ? wanted : progress + (wanted - progress) * (1 - Math.exp(-delta * 9));
 
-    // Bricks rain in while the stage slides up into view.
-    park.setBuilt(clamp01(1.08 - top / (innerHeight * 0.92)));
+    // The hero still covers the whole stage: nothing to draw yet.
+    if (intro < ENTER_FROM) return;
+
+    // Through the door: the park grows out of the doorway while its bricks rain in.
+    const entered = clamp01((intro - ENTER_FROM) / (1 - ENTER_FROM));
+    park.setBuilt(entered);
     park.update(now / 1000, progress);
+    camera.zoom = 0.4 + 0.6 * smootherstep(entered);
+    camera.updateProjectionMatrix();
 
     poseAt(progress, aspect, position, target);
     pointer.smoothX += (pointer.x - pointer.smoothX) * (1 - Math.exp(-delta * 3));
@@ -100,6 +107,7 @@ export async function mountPark(section: HTMLElement) {
     camera.translateX(pointer.smoothX * 1.4);
     camera.translateY(-pointer.smoothY * 0.9);
     camera.lookAt(target);
+    shared.uFocus.value = camera.position.distanceTo(target) / camera.zoom;
 
     showStop(stopAt(progress));
     section.classList.toggle('is-started', progress > 0.012);

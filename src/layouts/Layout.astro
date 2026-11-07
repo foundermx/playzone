@@ -1,5 +1,7 @@
 ---
-import { Font } from 'astro:assets';
+import { Font, getImage } from 'astro:assets';
+import share from '../assets/img/park-poster.webp';
+import { ADDRESS, PHONE } from '../data/site';
 import '../styles/global.css';
 
 interface Props {
@@ -8,6 +10,27 @@ interface Props {
 }
 
 const { title, description } = Astro.props;
+
+// Social previews need an absolute URL: they turn on once `site` is set in astro.config.mjs.
+const shareImage = Astro.site && (await getImage({ src: share, width: 1200, height: 630, fit: 'cover', format: 'jpg' }));
+
+// Lets search engines show the park as a place, with its address and phone.
+const business = {
+  '@context': 'https://schema.org',
+  '@type': 'AmusementPark',
+  name: 'Playzone Córdoba',
+  description,
+  slogan: 'El parque para todos',
+  telephone: PHONE,
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: ADDRESS,
+    addressLocality: 'Córdoba',
+    addressRegion: 'Veracruz',
+    addressCountry: 'MX',
+  },
+  ...(Astro.site && { url: Astro.site.href }),
+};
 ---
 
 <!doctype html>
@@ -20,7 +43,13 @@ const { title, description } = Astro.props;
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_MX" />
+    <meta property="og:site_name" content="Playzone Córdoba" />
+    {Astro.site && <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />}
+    {shareImage && <meta property="og:image" content={new URL(shareImage.src, Astro.site)} />}
+    {shareImage && <meta name="twitter:card" content="summary_large_image" />}
     <meta name="theme-color" content="#fbf8f5" />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(business)} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <Font cssVariable="--font-display" preload />
     <Font cssVariable="--font-ui" />
